@@ -170,3 +170,35 @@ class UserAdmin(admin.ModelAdmin):
 - **Login uses email + password**, through ordinary Django sessions (cookies). That's why the superuser account (`python manage.py createsuperuser`) is the one account with a real password, while app users are passwordless.
 - **Who can log in:** only users with `is_staff=True`. What they can do depends on `is_superuser` (everything) or individual permissions.
 - **For production:** use a strong password, consider a non-obvious URL instead of `/admin/`, and maybe restrict access by IP or add 2FA. We'll cover that when we deploy.
+
+## pyenv and `.python-version`
+
+**pyenv** manages several Python versions on one machine, like **nvm** for Node. `pyenv install 3.13.16` downloads Python's source code and **compiles** it (which is why it takes a few minutes). Each version lives in `~/.pyenv/versions/<version>/`.
+
+`pyenv local 3.13.16` writes a **`.python-version`** file (≈ `.nvmrc`). Inside that folder, the `python` command now means 3.13.16. Outside it, you get the global version (3.10.3 on this Mac). CI reads the same file, so local and CI always use the same version.
+
+Order of operations:
+1. pyenv provides the interpreter (`python` = 3.13.16 inside `backend/`)
+2. `python -m venv venv` creates a venv **from that interpreter**, so the venv is permanently 3.13.16
+3. after that, the venv's own `venv/bin/python` is what we use
+
+`python -m <module>` means "run this module as a script". `python -m venv`, `python -m pip` and `python -m pytest` are common examples.
+
+## Pinning versions: `==` and `pip freeze`
+
+- `pip install "Django>=5.2,<5.3"` says "any 5.2.x". It's like Composer's `~5.2.0`, and the quotes stop the shell from treating `>` and `<` as redirects.
+- `pip freeze` lists **every installed package with its exact version** (`Django==5.2.18`).
+- We write `==` exact versions into `requirements.txt`. Unlike Composer, pip has no separate lockfile, so pinning in `requirements.txt` *is* the lock. Everyone (and CI) gets exactly the same versions.
+- We only list the packages **we chose**. Their own dependencies (`asgiref`, `sqlparse`) get resolved by pip automatically.
+- `requirements-dev.txt` starts with `-r requirements.txt`, meaning "include that file too". One command installs both, like `require` + `require-dev`.
+
+## `pyproject.toml` and ruff
+
+`pyproject.toml` is Python's standard config file for a project, written in **TOML** (an `.ini`-like format). Tools read their own `[tool.<name>]` section, so pytest and ruff both live in it instead of separate config files.
+
+**ruff** is a linter *and* formatter, written in Rust, so it's very fast:
+- `ruff check .` is the **linter** (≈ ESLint / PHPStan). `--fix` auto-fixes what it safely can.
+- `ruff format .` is the **formatter** (≈ Prettier / PHP-CS-Fixer). It's opinionated: double quotes, 88-character lines, trailing commas.
+- Selected rule families: `E`/`W` (pycodestyle style), `F` (pyflakes: unused imports, undefined names), `I` (import sorting), `B` (bugbear: likely bugs), `UP` (pyupgrade: use modern syntax), `DJ` (Django-specific).
+
+When we ran it on the scaffold, the formatter rewrote 5 files, mostly changing `'single'` quotes to `"double"`. In Python both kinds of quote mean exactly the same thing (unlike PHP, where only `"..."` interpolates variables).
