@@ -6,12 +6,18 @@ AI-powered meal prep planner and pantry organizer.
 
 ```
 mealcycle/
-├── backend/        # Django REST API (Python)
-│   ├── mealcycle/  # Django project settings
-│   ├── venv/       # Python virtual environment
+├── .github/workflows/  # CI (backend.yml)
+├── backend/            # Django REST API (Python 3.13)
+│   ├── mealcycle/      # Project settings, root urls, env helpers
+│   ├── accounts/       # Custom User model (email-only, passwordless)
+│   ├── core/           # Project-wide features (health check)
+│   ├── venv/           # Python virtual environment (gitignored)
 │   ├── manage.py
-│   └── requirements.txt
-└── frontend/       # React app (to be added)
+│   ├── pyproject.toml  # pytest + ruff config
+│   ├── requirements.txt
+│   └── requirements-dev.txt
+├── docs/               # Per-domain context, decisions, specs, plans
+└── frontend/           # Mobile app (to be added)
 ```
 
 ## Backend Stack
@@ -24,10 +30,25 @@ mealcycle/
 
 ## Running the Backend
 
+First-time setup:
+```bash
+cd backend
+pyenv install --skip-existing "$(cat .python-version)"
+python -m venv venv
+venv/bin/pip install -r requirements-dev.txt
+cp .env.example .env            # then set SECRET_KEY
+createdb -h localhost -U postgres mealcycle
+venv/bin/python manage.py migrate
+venv/bin/python manage.py createsuperuser
+```
+
+Daily:
 ```bash
 cd backend
 source venv/bin/activate
-python manage.py runserver
+python manage.py runserver      # http://localhost:8000/api/v1/health/
+pytest                          # tests
+ruff check . && ruff format .   # lint + format (run before every PR)
 ```
 
 ## Django Conventions

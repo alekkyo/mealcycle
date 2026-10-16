@@ -1,6 +1,6 @@
 # Foundation: Design Spec
 
-**Status:** Approved · **Date:** 2026-10-17 · **Sub-project:** 1 of 7 (see [product/overview.md](../product/overview.md))
+**Status:** Implemented · **Date:** 2026-10-17 · **Sub-project:** 1 of 7 (see [product/overview.md](../product/overview.md))
 
 Decisions and their reasoning are in [decisions.md](decisions.md). This spec describes **what gets built**.
 
