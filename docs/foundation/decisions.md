@@ -38,6 +38,13 @@ Local Postgres: PostgreSQL 17 (DBngin) on `localhost:5432`.
 - Registered in Django admin (list/search/filter by email, active, staff).
 - Tests: email lowercased and no usable password; duplicate email rejected, including case variants; missing email rejected; superuser has a usable password and the staff/superuser flags.
 
+### DRF setup and health check (approved 2026-10-17)
+- `rest_framework` in `INSTALLED_APPS`. Defaults: `IsAuthenticated` permission (endpoints are private unless they opt out), JSON renderer, plus the browsable API only when `DEBUG=True`, and session authentication only (JWT comes in the auth sub-project).
+- All API routes live under `/api/v1/`. **Why:** mobile users stay on old app versions for months, so a breaking change can ship as `/api/v2/` next to `v1`.
+- New `backend/core/` app for project-wide features, starting with the health check.
+- `GET /api/v1/health/` (public, `APIView`): `200 {"status":"ok","database":"ok"}`, or `503 {"status":"error","database":"unavailable"}` when the DB can't be reached. Other verbs return 405.
+- Tests: 200 + body; works without login; 503 when the DB check is mocked to fail; POST → 405.
+
 ### Scope of the foundation sub-project
 1. Settings come from `.env` (`SECRET_KEY`, `DEBUG`, `DATABASE_URL`, `ALLOWED_HOSTS`).
 2. Postgres replaces SQLite.
