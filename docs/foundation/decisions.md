@@ -74,5 +74,13 @@ Local Postgres: PostgreSQL 17 (DBngin) on `localhost:5432`.
 - Prod: Django 5.2, DRF, psycopg, python-dotenv, dj-database-url.
 - Dev: `-r requirements.txt` plus pytest, pytest-django, ruff (≈ Composer's `require-dev`).
 
+### Tests, linting, CI (approved 2026-10-17)
+- **pytest + pytest-django** (≈ Pest), not Django's built-in unittest style. Tests go in each app's `tests/` folder, and shared fixtures in `backend/conftest.py`.
+- **ruff** for both linting and formatting. Rules: E, W, F, I, B, UP, DJ. Migrations are excluded.
+- All tool config is in `backend/pyproject.toml`.
+- **GitHub Actions CI** on every PR and on push to main: ruff check, ruff format --check, `makemigrations --check`, pytest against a Postgres 17 service.
+- **Why CI now:** it's a product we're launching, so every PR from the first one onward is checked automatically.
+
 ## Open questions
 
+None. The design is complete. See [spec.md](spec.md).
