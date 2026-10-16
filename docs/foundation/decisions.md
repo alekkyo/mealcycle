@@ -38,7 +38,11 @@ Local Postgres: PostgreSQL 17 (DBngin) on `localhost:5432`.
 6. Linting and formatting with `ruff`.
 7. `GET /api/health/` endpoint with a test, proving the request → view → response path works end to end.
 
+### Python 3.13 + Django 5.2 LTS
+- Rebuild `backend/venv` on Python 3.13 (installed with `pyenv install 3.13`). Keep Django on the 5.2 LTS line.
+- **Why:** Python 3.10 reaches end of life in October 2026, so it gets no more security fixes. 3.13 is mature and every library supports it. Django 5.2 LTS gets security fixes until April 2028, which is the right base for a product we're launching.
+- **Rejected:** Python 3.14 + Django 6.x (shorter support windows, so more frequent upgrades). Staying on 3.10 (EOL).
+
 ## Open questions
 
-- Python version: stay on 3.10, or move to 3.12/3.13 before we start? Only 3.10.3 is installed via pyenv.
 - Settings layout: one `settings.py` driven by env vars, or split into `base/dev/prod`?
