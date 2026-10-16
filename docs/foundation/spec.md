@@ -1,6 +1,6 @@
 # Foundation: Design Spec
 
-**Status:** Awaiting review · **Date:** 2026-10-17 · **Sub-project:** 1 of 7 (see [product/overview.md](../product/overview.md))
+**Status:** Approved · **Date:** 2026-10-17 · **Sub-project:** 1 of 7 (see [product/overview.md](../product/overview.md))
 
 Decisions and their reasoning are in [decisions.md](decisions.md). This spec describes **what gets built**.
 
@@ -50,13 +50,14 @@ Kept as one settings file. Values that differ between environments come from env
 - `User(AbstractBaseUser, PermissionsMixin)`
   - `email`: `EmailField(unique=True)`, `USERNAME_FIELD = "email"`, `REQUIRED_FIELDS = []`
   - `is_active` (default `True`), `is_staff` (default `False`), `date_joined` (default `timezone.now`)
-  - The email is also lowercased in `save()`, so every way of creating a user gets the same treatment. Uniqueness is then enforced by the database's unique constraint.
+  - `save()` also normalizes the email (strips spaces, lowercases) and, **if no password is set, calls `set_unusable_password()`**, so every way of creating a user gets the same treatment, including the admin form. (Django treats an empty password string as *usable*, so this step is needed.) Uniqueness is then enforced by the database's unique constraint.
+  - `get_by_natural_key()` normalizes too, so the admin login accepts `Alex@Example.com`.
 - `settings.AUTH_USER_MODEL = "accounts.User"`, set **before the first `migrate`**.
 
 **`accounts/admin.py`**: `UserAdmin(admin.ModelAdmin)`, deliberately not Django's built-in `UserAdmin`, which assumes a `username` and password forms.
 - `list_display` (email, is_active, is_staff, date_joined), `search_fields` (email), `list_filter` (is_active, is_staff)
 - Editable fields: email, is_active, is_staff, is_superuser, groups, user_permissions. `date_joined` and `last_login` are read-only. `password` is **excluded** from the form, so the admin never shows or edits hashes.
-- Users created in the admin go through `save()` with no password set. `AbstractBaseUser` stores an empty password, which counts as unusable, so they're passwordless like app users. The admin superuser is created only with `createsuperuser`.
+- Users created in the admin go through `save()` with no password set, so `save()` gives them an unusable password and they're passwordless like app users. The admin superuser is created only with `createsuperuser`.
 
 ## 5. DRF and URLs
 
@@ -105,7 +106,7 @@ REST_FRAMEWORK = {
 All tool configuration lives in `backend/pyproject.toml`:
 - `[tool.pytest.ini_options]`: `DJANGO_SETTINGS_MODULE = "mealcycle.settings"`
 - `[tool.ruff]`: target `py313`, line length 88 (ruff's default), `migrations` folders excluded
-- `[tool.ruff.lint]` rules: `E`, `W`, `F` (errors), `I` (import sorting), `B` (bug patterns), `UP` (modern syntax), `DJ` (Django)
+- `[tool.ruff.lint]` rules: `E`, `W`, `F` (errors), `I` (import sorting), `B` (bug patterns), `UP` (modern syntax), `DJ` (Django). `E501` (line too long) is ignored because the formatter handles line length
 
 All existing files must pass `ruff check` and `ruff format --check`.
 

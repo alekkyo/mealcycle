@@ -5,7 +5,7 @@ Context, discussions, and decisions for MealCycle, grouped by domain. Each doc r
 | Domain | Doc | Status |
 |---|---|---|
 | Product | [product/overview.md](product/overview.md) | Vision, principles, roadmap |
-| Foundation | [foundation/decisions.md](foundation/decisions.md) · [spec.md](foundation/spec.md) | Spec awaiting review |
+| Foundation | [foundation/decisions.md](foundation/decisions.md) · [spec.md](foundation/spec.md) · [plan.md](foundation/plan.md) | Plan awaiting review |
 | Accounts & Auth | [accounts/auth.md](accounts/auth.md) | Requirements gathered |
 | Onboarding | [onboarding/questionnaire.md](onboarding/questionnaire.md) | Requirements gathered |
 | Learning | [learning/python-for-laravel-devs.md](learning/python-for-laravel-devs.md) | Python notes for a Laravel developer |
