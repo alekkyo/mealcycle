@@ -202,3 +202,42 @@ Order of operations:
 - Selected rule families: `E`/`W` (pycodestyle style), `F` (pyflakes: unused imports, undefined names), `I` (import sorting), `B` (bugbear: likely bugs), `UP` (pyupgrade: use modern syntax), `DJ` (Django-specific).
 
 When we ran it on the scaffold, the formatter rewrote 5 files, mostly changing `'single'` quotes to `"double"`. In Python both kinds of quote mean exactly the same thing (unlike PHP, where only `"..."` interpolates variables).
+
+## Python basics from Task 2 (`mealcycle/env.py`)
+
+```python
+import os                                              # import a whole module, then use os.environ
+from django.core.exceptions import ImproperlyConfigured  # import one name out of a module (≈ PHP `use`)
+
+def env_required(name: str) -> str:                    # function with type hints
+    value = os.environ.get(name)
+    if not value:                                      # no braces: indentation IS the block
+        raise ImproperlyConfigured(f"Missing ...: {name}")   # raise ≈ throw; f"..." ≈ "...{$name}"
+    return value
+```
+
+- **Modules:** every `.py` file is a module, and every folder with an `__init__.py` is a **package**. `from mealcycle.env import env_list` means "file `mealcycle/env.py`, the name `env_list`". There's no autoloader or namespace declaration; the folder path *is* the namespace.
+- **Indentation is syntax.** Blocks are defined by 4-space indentation after a `:`. There are no `{}` and no `;`.
+- **Type hints** (`name: str -> str`) work like TypeScript annotations, but Python **doesn't enforce them at runtime**. They're for editors and type-checkers.
+- **Truthiness:** `if not value:` is true for `None`, `""`, `0`, `[]` and `{}`, like PHP's `empty()`.
+- **f-strings:** `f"Hello {name}"` ≈ PHP `"Hello {$name}"` ≈ JS `` `Hello ${name}` ``.
+- **List comprehension:** `[item.strip() for item in raw.split(",") if item.strip()]` ≈ `array_filter(array_map(...))`, or JS `.map().filter()`, written as one expression.
+- **Docstrings:** the `"""..."""` string right under a `def` documents it (≈ a PHPDoc block). Editors show it on hover.
+- **`None`** is Python's `null`. **`True` / `False`** are capitalized.
+
+## pytest basics
+
+- pytest finds files named `test_*.py` and runs every function whose name starts with `test_`.
+- `assert x == y` is the whole assertion API. When it fails, pytest prints both sides.
+- `with pytest.raises(SomeError, match="text"):` means "the code inside this block must raise SomeError, with a message containing `text`" (≈ PHPUnit `expectException`).
+- **Fixtures** are injected **by parameter name**. `def test_x(monkeypatch):` receives pytest's built-in `monkeypatch`, which can set or remove env vars and automatically undoes the change after the test.
+- `@pytest.mark.django_db` gives a test database access (pytest-django blocks DB access otherwise, so tests don't hit the DB by accident). Each test's changes are rolled back afterwards.
+- pytest-django creates a separate **`test_mealcycle`** database for the run and drops it at the end, so your real data is never touched.
+
+## How settings load env vars now
+
+`load_dotenv(BASE_DIR / ".env")` copies `.env` into `os.environ`, **without overwriting variables that are already set**. That's why `SECRET_KEY= python manage.py check` (an empty value set in the shell) wins over `.env` and triggers our "Missing required environment variable" error.
+
+`BASE_DIR / ".env"`: `BASE_DIR` is a `pathlib.Path`, and `/` joins paths (≈ `base_path('.env')` in Laravel).
+
+`createdb -h localhost -U postgres mealcycle` is a command-line tool that ships with Postgres (≈ `CREATE DATABASE mealcycle;`).
