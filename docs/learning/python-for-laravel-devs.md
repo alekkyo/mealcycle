@@ -241,3 +241,57 @@ def env_required(name: str) -> str:                    # function with type hint
 `BASE_DIR / ".env"`: `BASE_DIR` is a `pathlib.Path`, and `/` joins paths (≈ `base_path('.env')` in Laravel).
 
 `createdb -h localhost -U postgres mealcycle` is a command-line tool that ships with Postgres (≈ `CREATE DATABASE mealcycle;`).
+
+## Classes, inheritance, and `self` (from `accounts/models.py`)
+
+```python
+class User(AbstractBaseUser, PermissionsMixin):     # extends TWO parents
+    email = models.EmailField(unique=True)          # class attribute = a DB column
+    objects = UserManager()                         # the manager: User.objects.create_user(...)
+
+    def __str__(self):                              # ≈ __toString()
+        return self.email
+
+    def save(self, *args, **kwargs):                # override a parent method
+        self.email = normalize_email_address(self.email)
+        super().save(*args, **kwargs)               # ≈ parent::save(...$args)
+```
+
+- **`class A(B, C):`**: parent classes go in parentheses. Python allows **multiple inheritance**. A **mixin** like `PermissionsMixin` is a small class meant to be mixed in, much like a **PHP trait**.
+- **`self`** ≈ `$this`, but it's **written explicitly** as the first parameter of every method. Python passes it automatically when you call `user.save()`.
+- **Attributes use a dot:** `self.email` ≈ `$this->email`. There's no `->` and no `$`.
+- **No `new` keyword:** `User(email="a@b.com")` creates an instance.
+- **Keyword arguments:** `create_user(email="a@b.com", is_staff=True)` ≈ PHP 8 named arguments.
+- **`*args, **kwargs`** collect "any extra positional args" (a tuple) and "any extra named args" (a dict). Passing them on with `super().save(*args, **kwargs)` forwards everything (≈ `...$args`). It's the standard way to override a method without caring about its exact signature.
+- **Dunder methods** (double underscore): `__str__`, `__init__` (≈ `__construct`) and so on are hooks Python calls for you. `str(user)` calls `user.__str__()`.
+- **`is` vs `==`:** `x is True` checks identity (it's the very same object). `==` checks equality. Use `is` for `None`, `True` and `False`.
+
+## Django models vs Eloquent
+
+| Eloquent | Django |
+|---|---|
+| Columns defined in a migration you write | **Columns defined on the model**: `email = models.EmailField(unique=True)` |
+| `php artisan make:migration` (you write the SQL changes) | `python manage.py makemigrations`: Django **compares models to existing migrations and generates the file** |
+| `php artisan migrate` | `python manage.py migrate` |
+| `User::create([...])`, `User::where(...)` | `User.objects.create(...)`, `User.objects.filter(...)`. `objects` is the **manager** |
+| Custom static methods / query scopes | **Custom manager methods**, like our `create_user` |
+
+So in Django **the model is the source of truth**, and migrations are derived from it. Our first migration (`accounts/migrations/0001_initial.py`) was generated entirely from the `User` class. Migrations are still committed to git and reviewed, the same as in Laravel.
+
+## The custom User model
+
+- `AbstractBaseUser` gives only `password` + `last_login` plus password hashing (`set_password`, `check_password`). `PermissionsMixin` adds `is_superuser`, `groups` and `user_permissions`.
+- `USERNAME_FIELD = "email"` tells Django "log in with email". `REQUIRED_FIELDS = []` means `createsuperuser` asks for nothing beyond email + password.
+- `AUTH_USER_MODEL = "accounts.User"` in settings makes every part of Django (admin, auth, sessions, third-party packages) use our table. It had to be set **before the first `migrate`**: when we ran it, Postgres got `accounts_user` and **no** `auth_user` table.
+- **Unusable password:** `set_unusable_password()` stores a marker starting with `!` that can never match any password. Our `save()` does this whenever no password is set.
+- **`get_by_natural_key`** is what Django's login calls to find the user. We normalize the email there so `BOSS@example.com` logs in as `boss@example.com`.
+
+## Decorators (from `accounts/admin.py`)
+
+```python
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin): ...
+```
+A decorator is a function that receives the class (or function) below it and can register it, wrap it or change it. `@admin.register(User)` is the same as writing `admin.site.register(User, UserAdmin)` after the class. It looks like a PHP 8 attribute (`#[...]`), but it actually **runs code**, at import time.
+
+**Tuples:** `("email", "is_active")` is a **tuple**, an immutable list. A one-item tuple needs a trailing comma: `("email",)`. Without it, `("email")` is just a string in parentheses.
