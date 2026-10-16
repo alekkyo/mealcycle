@@ -147,3 +147,26 @@ Your code:   User.objects.filter(email="a@b.com")      (≈ Eloquent)
 - **Versions:** `psycopg2` is the long-time standard. `psycopg` (version 3, without the "2" in the name) is its modern successor, and it's what Django recommends now. We use v3.
 - **`[binary]`:** psycopg is built on `libpq`, Postgres's official C library. `pip install "psycopg[binary]"` installs a pre-compiled copy, so you don't need a C compiler or Postgres headers on your machine. It's the same idea as the old `psycopg2-binary` package.
 - Every database has its own driver: `mysqlclient` for MySQL, and `sqlite3` is built into Python, which is why the scaffold's SQLite setup needed no extra package.
+
+## Django admin
+
+A **back-office web UI that's built in and generated automatically** from your models, at `/admin/`. It's like **Laravel Nova or Filament**, but it's included free in every Django project. The scaffold's `urls.py` already has `path('admin/', admin.site.urls)`.
+
+- **It's for us (staff), not for app users.** You use it to look up a user, check their onboarding answers, fix bad data or disable an account, without writing SQL or building internal tools.
+- **It's generated from models.** You register a model and get list, search, filter, create, edit and delete pages:
+
+```python
+# accounts/admin.py
+from django.contrib import admin
+from .models import User
+
+@admin.register(User)                 # "@" is a decorator: it registers the class below with the admin
+class UserAdmin(admin.ModelAdmin):
+    list_display = ["email", "is_active", "is_staff", "date_joined"]   # table columns
+    search_fields = ["email"]                                          # search box
+    list_filter = ["is_active", "is_staff"]                            # sidebar filters
+```
+
+- **Login uses email + password**, through ordinary Django sessions (cookies). That's why the superuser account (`python manage.py createsuperuser`) is the one account with a real password, while app users are passwordless.
+- **Who can log in:** only users with `is_staff=True`. What they can do depends on `is_superuser` (everything) or individual permissions.
+- **For production:** use a strong password, consider a non-obvious URL instead of `/admin/`, and maybe restrict access by IP or add 2FA. We'll cover that when we deploy.
