@@ -29,6 +29,15 @@ Local Postgres: PostgreSQL 17 (DBngin) on `localhost:5432`.
 - The User model holds **authentication data only**. Onboarding answers, goals, the trial and so on go in separate related models.
 - **Why:** This follows the simplicity principle, and it matches mobile-first passwordless auth. Keeping User lean means profile data can change without affecting login.
 
+### User model design (approved 2026-10-17)
+- New app `backend/accounts/`. `User` extends `AbstractBaseUser` + `PermissionsMixin`, not `AbstractUser`, so there's no `username`, `first_name` or `last_name`.
+- Fields: `id` (BigAutoField), `email` (unique, always lowercased), `is_active` (default True), `is_staff` (default False), `date_joined` (auto), plus the inherited `password` and `last_login`.
+- No name field. Signup asks for an email only (simplicity principle).
+- Custom `UserManager`: `create_user(email)` lowercases the email and sets an unusable password. `create_superuser(email, password)` is for admin access only.
+- `AUTH_USER_MODEL = "accounts.User"`, set before the first migration.
+- Registered in Django admin (list/search/filter by email, active, staff).
+- Tests: email lowercased and no usable password; duplicate email rejected, including case variants; missing email rejected; superuser has a usable password and the staff/superuser flags.
+
 ### Scope of the foundation sub-project
 1. Settings come from `.env` (`SECRET_KEY`, `DEBUG`, `DATABASE_URL`, `ALLOWED_HOSTS`).
 2. Postgres replaces SQLite.
