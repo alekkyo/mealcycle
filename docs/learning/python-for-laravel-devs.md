@@ -83,3 +83,50 @@ Unlike `composer require`, `pip install foo` does **not** add `foo` to `requirem
 | **Docker** | Python runs in a container | Many dev setups, and almost all deployments |
 
 Ask the new team which one they use.
+
+## `.env` files and settings
+
+Same idea as Laravel's `.env`, with one difference: **Django doesn't load `.env` by itself.** Laravel reads it automatically. In Django, `settings.py` is plain Python, so we load the file ourselves using the `python-dotenv` package:
+
+```python
+# settings.py
+import os                          # Python's built-in module for talking to the OS (≈ getenv() in PHP)
+from dotenv import load_dotenv     # from the python-dotenv package
+
+load_dotenv(BASE_DIR / ".env")     # reads backend/.env into the process's environment variables
+
+SECRET_KEY = os.environ["SECRET_KEY"]                  # required: crashes on startup if it's missing
+DEBUG = os.environ.get("DEBUG", "False") == "True"     # optional, with a default (≈ env('DEBUG', false))
+```
+
+- `os.environ["X"]` fails loudly if `X` is missing. Good for values that must be set, like secrets.
+- `os.environ.get("X", default)` is like Laravel's `env('X', default)`.
+- Environment variables are **always strings**, so `"True"` has to be converted to the boolean `True` explicitly.
+- `.env` is gitignored, and `.env.example` is committed as a template. Same as Laravel.
+- `DATABASE_URL` packs the whole connection into one string (`postgres://user:pass@host:port/db`). A small package, `dj-database-url`, turns it into Django's `DATABASES` dict.
+- In production we don't use a `.env` file. The hosting platform sets real environment variables, and `load_dotenv` does nothing if the file isn't there.
+
+## `INSTALLED_APPS`: "registering" a package
+
+`INSTALLED_APPS` in `settings.py` is the list of apps that Django turns on. It's roughly Laravel's list of service providers. **`pip install` only downloads code. Listing the app in `INSTALLED_APPS` is what makes Django actually use it** (its models, migrations, templates, admin and management commands).
+
+```python
+INSTALLED_APPS = [
+    "django.contrib.admin",       # Django's own features are apps too
+    "django.contrib.auth",
+    ...
+    "rest_framework",             # ← "registering DRF"
+    "accounts",                   # ← our own apps get listed here as well
+]
+```
+
+Package-wide settings go in a dict (≈ a `config/*.php` file returning an array):
+
+```python
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],  # login required by default
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],         # JSON responses only
+}
+```
+
+**DRF (Django REST Framework)** is the package that turns Django into an API framework. Django on its own is built for server-rendered HTML pages. DRF adds serializers, API views, authentication classes, permissions and pagination: everything Laravel gives you for API routes.
