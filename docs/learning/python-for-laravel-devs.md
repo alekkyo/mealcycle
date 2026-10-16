@@ -295,3 +295,60 @@ class UserAdmin(admin.ModelAdmin): ...
 A decorator is a function that receives the class (or function) below it and can register it, wrap it or change it. `@admin.register(User)` is the same as writing `admin.site.register(User, UserAdmin)` after the class. It looks like a PHP 8 attribute (`#[...]`), but it actually **runs code**, at import time.
 
 **Tuples:** `("email", "is_active")` is a **tuple**, an immutable list. A one-item tuple needs a trailing comma: `("email",)`. Without it, `("email")` is just a string in parentheses.
+
+## A DRF request, end to end (from Task 4)
+
+```
+GET /api/v1/health/
+  → mealcycle/urls.py   path("api/v1/", include("core.urls"))   ≈ Route::prefix('api/v1')->group(base_path('routes/core.php'))
+  → core/urls.py        path("health/", HealthView.as_view())   ≈ Route::get('health', HealthController::class)
+  → core/views.py       HealthView.get(self, request)           ≈ HealthController::__invoke(Request $request)
+  → Response({...})     DRF turns the dict into JSON           ≈ response()->json([...])
+```
+
+- **`APIView`** is a class-based view: **one method per HTTP verb** (`get`, `post`, `put`, `delete`). A verb without a method returns **405** automatically.
+- **`.as_view()`** turns the class into the plain function that Django's URL router expects. You always write `SomeView.as_view()` in `urls.py`.
+- **Class attributes configure the view:** `permission_classes = [AllowAny]` makes it public, overriding the global `IsAuthenticated` default (≈ removing the `auth` middleware for one route). `authentication_classes = []` means "don't even try to identify the user".
+- **Python dicts** `{"status": "ok"}` ≈ PHP associative arrays `['status' => 'ok']`, and DRF serializes them to JSON.
+- **`status.HTTP_503_SERVICE_UNAVAILABLE`** is a named constant for 503 (≈ `Response::HTTP_SERVICE_UNAVAILABLE` in Symfony/Laravel).
+
+## `try` / `except`
+
+```python
+try:
+    connection.ensure_connection()
+except OperationalError:              # ≈ catch (OperationalError $e)
+    return Response(..., status=503)
+```
+Python's version of `try/catch`. Use `except SomeError as e:` if you need the exception object. There's also `finally:` like PHP, and `else:`, which runs only if nothing was raised.
+
+## Mocking with `unittest.mock.patch`
+
+```python
+with patch("core.views.connection") as mock_connection:
+    mock_connection.ensure_connection.side_effect = OperationalError("db down")
+    response = api_client.get(HEALTH_URL)
+```
+- `patch("core.views.connection")` **temporarily replaces** the name `connection` *inside the `core.views` module* with a fake object (a `MagicMock`), and puts it back when the `with` block ends. You patch **where the name is used**, not where it's defined.
+- `side_effect = SomeError(...)` makes the fake **raise** that error when it's called (≈ Mockery's `->andThrow()`). `return_value = x` makes it return `x` instead (≈ `->andReturn()`).
+- **`with ... as x:`** is a *context manager*: setup on entry, guaranteed cleanup on exit, even if an error happens. It's also used for files (`with open(path) as f:`) and `pytest.raises`.
+
+## Fixtures in `conftest.py`
+
+```python
+@pytest.fixture
+def api_client():
+    return APIClient()
+```
+Any test that has a parameter named `api_client` receives a new `APIClient`. pytest finds `conftest.py` files automatically, with no import needed. pytest-django also provides built-in fixtures we used: `client`, `admin_client` (already logged in as a superuser) and `admin_user`.
+
+## Unpacking with `*`
+
+```python
+"DEFAULT_RENDERER_CLASSES": [
+    "rest_framework.renderers.JSONRenderer",
+    *(["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
+],
+```
+- `x if condition else y` is Python's ternary (≈ `condition ? x : y`).
+- `*[...]` **spreads** a list into the surrounding list (≈ JS `...[...]`, PHP `...[...]`). So the list is `[JSON, Browsable]` when `DEBUG` is on, and just `[JSON]` otherwise.

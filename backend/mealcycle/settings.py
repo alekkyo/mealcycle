@@ -41,7 +41,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
     "accounts",
+    "core",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -124,3 +126,20 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Django REST Framework
+# Every endpoint requires login unless it explicitly opts out.
+# JWT for the mobile app arrives in the auth sub-project.
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+        # Clickable HTML API pages, only while developing.
+        *(["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
+    ],
+}
