@@ -130,3 +130,20 @@ REST_FRAMEWORK = {
 ```
 
 **DRF (Django REST Framework)** is the package that turns Django into an API framework. Django on its own is built for server-rendered HTML pages. DRF adds serializers, API views, authentication classes, permissions and pagination: everything Laravel gives you for API routes.
+
+## psycopg: the Postgres driver
+
+**psycopg** (pronounced "psycho-P-G") is the library Python uses to talk to PostgreSQL. In PHP terms it's the **`pdo_pgsql` extension**: the low-level piece that opens a connection, sends SQL and returns rows.
+
+```
+Your code:   User.objects.filter(email="a@b.com")      (≈ Eloquent)
+                 ↓  Django ORM builds SQL
+             SELECT ... FROM accounts_user WHERE email = 'a@b.com'
+                 ↓  psycopg sends it over the network
+             PostgreSQL on localhost:5432
+```
+
+- You almost never call psycopg directly. Django's ORM uses it underneath. Django picks it because `DATABASES` says `ENGINE: django.db.backends.postgresql`.
+- **Versions:** `psycopg2` is the long-time standard. `psycopg` (version 3, without the "2" in the name) is its modern successor, and it's what Django recommends now. We use v3.
+- **`[binary]`:** psycopg is built on `libpq`, Postgres's official C library. `pip install "psycopg[binary]"` installs a pre-compiled copy, so you don't need a C compiler or Postgres headers on your machine. It's the same idea as the old `psycopg2-binary` package.
+- Every database has its own driver: `mysqlclient` for MySQL, and `sqlite3` is built into Python, which is why the scaffold's SQLite setup needed no extra package.
