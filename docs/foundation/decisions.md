@@ -43,6 +43,20 @@ Local Postgres: PostgreSQL 17 (DBngin) on `localhost:5432`.
 - **Why:** Python 3.10 reaches end of life in October 2026, so it gets no more security fixes. 3.13 is mature and every library supports it. Django 5.2 LTS gets security fixes until April 2028, which is the right base for a product we're launching.
 - **Rejected:** Python 3.14 + Django 6.x (shorter support windows, so more frequent upgrades). Staying on 3.10 (EOL).
 
+### Configuration: one `settings.py` driven by environment variables
+- `SECRET_KEY` (required, newly generated), `DEBUG` (defaults to `False`), `ALLOWED_HOSTS`, `DATABASE_URL`, loaded from `backend/.env` via `python-dotenv`. `.env.example` is updated to match.
+- **Why:** One file, with no base/dev/prod drift. Same model as Laravel's `.env`. Simplest option.
+- **Rejected:** split `settings/base.py`, `dev.py`, `prod.py` (three files to keep in sync).
+
+### Database: local Postgres, new `mealcycle` database
+- Use the existing local PostgreSQL 17 (DBngin) on `localhost:5432`, with a new database called `mealcycle`. The user approved creating it and running migrations on it (2026-10-17). The other databases on that server (`kespas`, `kespas_testing`) belong to another project and must not be touched.
+- `dj-database-url` parses `DATABASE_URL`. SQLite is removed, and tests also run on Postgres (pytest-django creates a temporary `test_mealcycle` database).
+- Driver: `psycopg` (v3) replaces `psycopg2-binary`.
+- Terminology: in Postgres, a *database* holds *schemas* (namespaces, default `public`), and schemas hold tables. Django puts everything in the `public` schema of the database we point it at.
+
+### Dependencies: `requirements.txt` + `requirements-dev.txt`
+- Prod: Django 5.2, DRF, psycopg, python-dotenv, dj-database-url.
+- Dev: `-r requirements.txt` plus pytest, pytest-django, ruff (≈ Composer's `require-dev`).
+
 ## Open questions
 
-- Settings layout: one `settings.py` driven by env vars, or split into `base/dev/prod`?
