@@ -29,6 +29,7 @@ jobs:
 
     env:
       SECRET_KEY: ci-only-not-a-real-secret
+      JWT_SECRET_KEY: ci-only-not-a-real-jwt-secret
       DEBUG: "False"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/mealcycle
 

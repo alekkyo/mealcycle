@@ -486,3 +486,19 @@ Lesson: the only truly dangerous one is `migrations/__init__.py`, and our test s
 - A model without registration still has its table, just no admin page.
 - ≈ **Nova/Filament resources**: one class per model, auto-discovered, defining columns, filters and forms. Django looks in each app's `admin.py` instead of one central folder.
 - `admin.py` is just the filename autodiscovery looks for. Registering somewhere else technically works, but always use `admin.py`.
+
+## Adding a third-party Django app (allauth)
+
+Installing a Django package is usually **4 steps**, like a Laravel package with a service provider, config file and migrations:
+1. `pip install "django-allauth[headless]==65.20.0"` and pin it in `requirements.txt`. `[headless]` is an **extra**: optional dependencies (here PyJWT) installed alongside it.
+2. Add its apps to `INSTALLED_APPS` (≈ registering service providers), plus any middleware.
+3. Set its settings (`ACCOUNT_*`, `HEADLESS_*`), the way you'd publish and edit `config/package.php`.
+4. Include its URLs and run `migrate`. Its own migrations created `account_emailaddress` and friends.
+
+**App order matters for templates.** When Django looks for `account/email/login_code_subject.txt`, it checks each app's `templates/` folder **in `INSTALLED_APPS` order** and uses the first match. Because `"accounts"` is listed before `"allauth"`, our files override allauth's (≈ publishing and editing a package's views in Laravel).
+
+**`AUTHENTICATION_BACKENDS`** ≈ Laravel guards/user providers: the list of ways Django can check "who is this?". `ModelBackend` checks email + password (for the admin). allauth's backend adds its own login methods.
+
+**Headless** means "no HTML pages, only a JSON API". The mobile app draws the screens. `HEADLESS_ONLY = True` turns off allauth's built-in web pages, and `HEADLESS_CLIENTS = ("app",)` exposes only the mobile flavour of the API: `/_allauth/app/v1/...`. `GET /_allauth/app/v1/config` tells the app which features are on.
+
+**Pending flows:** allauth answers "not finished yet" with **401** plus a `flows` list (e.g. `verify_email` pending) and a `meta.session_token`. The app sends that token back as the `X-Session-Token` header on the next step, so the server knows which signup or login is being continued.

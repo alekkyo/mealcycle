@@ -42,11 +42,19 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "accounts",
+    "accounts",  # before allauth so our email templates override allauth's
+    "allauth",
+    "allauth.account",
+    "allauth.headless",
     "core",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",  # Django admin login
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -56,6 +64,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -143,3 +152,31 @@ REST_FRAMEWORK = {
         *(["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     ],
 }
+
+# django-allauth: passwordless email login by code (see docs/accounts/spec.md)
+ALLAUTH_USER_CODE_FORMAT = {"numeric": True, "length": 6}  # e.g. 482-913
+
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*"]  # no password → unusable password
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_PREVENT_ENUMERATION = False  # one email screen for signup and login
+ACCOUNT_EMAIL_SUBJECT_PREFIX = ""
+
+ACCOUNT_LOGIN_BY_CODE_ENABLED = True
+ACCOUNT_LOGIN_BY_CODE_TIMEOUT = 600
+ACCOUNT_LOGIN_BY_CODE_MAX_ATTEMPTS = 3
+
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_TIMEOUT = 600
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_MAX_ATTEMPTS = 3
+
+HEADLESS_ONLY = True
+HEADLESS_CLIENTS = ("app",)
+HEADLESS_TOKEN_STRATEGY = "allauth.headless.tokens.strategies.jwt.JWTTokenStrategy"
+HEADLESS_JWT_ALGORITHM = "HS256"
+HEADLESS_JWT_PRIVATE_KEY = env_required("JWT_SECRET_KEY")
+HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN = 15 * 60
+HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN = 90 * 24 * 60 * 60
+HEADLESS_JWT_ROTATE_REFRESH_TOKEN = True
