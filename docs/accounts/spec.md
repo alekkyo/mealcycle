@@ -1,6 +1,6 @@
 # Accounts & Auth (email login): Design Spec
 
-**Status:** Approved · **Date:** 2026-10-17 · **Sub-project:** 2 (see [product/overview.md](../product/overview.md))
+**Status:** Implemented · **Date:** 2026-10-17 · **Sub-project:** 2 (see [product/overview.md](../product/overview.md))
 
 Decisions and their reasoning: [auth.md](auth.md). allauth facts: [allauth-research.md](allauth-research.md).
 

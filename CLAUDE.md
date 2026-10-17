@@ -9,7 +9,7 @@ mealcycle/
 ├── .github/workflows/  # CI (backend.yml)
 ├── backend/            # Django REST API (Python 3.13)
 │   ├── config/         # Project settings, root urls, env helpers
-│   ├── accounts/       # Custom User model (email-only, passwordless)
+│   ├── accounts/       # User, Profile (trial), allauth email templates, /me
 │   ├── core/           # Project-wide features (health check)
 │   ├── venv/           # Python virtual environment (gitignored)
 │   ├── manage.py
@@ -24,7 +24,7 @@ mealcycle/
 
 - **Framework**: Django 5 + Django REST Framework
 - **Database**: PostgreSQL
-- **Auth**: Django built-in auth + JWT (to be added)
+- **Auth**: django-allauth headless: passwordless 6-digit email code login, JWT for the mobile app
 - **AI**: Anthropic Claude API for meal suggestions
 - **Payments**: Stripe (subscription billing)
 
@@ -36,7 +36,7 @@ cd backend
 pyenv install --skip-existing "$(cat .python-version)"
 python -m venv venv
 venv/bin/pip install -r requirements-dev.txt
-cp .env.example .env            # then set SECRET_KEY
+cp .env.example .env            # set SECRET_KEY + JWT_SECRET_KEY; optional Mailtrap EMAIL_* (else emails print in the terminal)
 createdb -h localhost -U postgres mealcycle
 venv/bin/python manage.py migrate
 venv/bin/python manage.py createsuperuser

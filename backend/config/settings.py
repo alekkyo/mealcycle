@@ -181,3 +181,25 @@ HEADLESS_JWT_PRIVATE_KEY = env_required("JWT_SECRET_KEY")
 HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN = 15 * 60
 HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN = 90 * 24 * 60 * 60
 HEADLESS_JWT_ROTATE_REFRESH_TOKEN = True
+
+
+# Email: SMTP (Mailtrap locally) when EMAIL_HOST is set, otherwise printed to the
+# console. Tests always use Django's in-memory outbox.
+def email_settings_from_env(environ) -> dict:
+    """SMTP settings when EMAIL_HOST is set, otherwise the console backend."""
+    if not environ.get("EMAIL_HOST"):
+        return {"EMAIL_BACKEND": "django.core.mail.backends.console.EmailBackend"}
+    return {
+        "EMAIL_BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "EMAIL_HOST": environ["EMAIL_HOST"],
+        "EMAIL_PORT": int(environ.get("EMAIL_PORT", "2525")),
+        "EMAIL_HOST_USER": environ.get("EMAIL_HOST_USER", ""),
+        "EMAIL_HOST_PASSWORD": environ.get("EMAIL_HOST_PASSWORD", ""),
+        "EMAIL_USE_TLS": True,
+    }
+
+
+globals().update(email_settings_from_env(os.environ))  # defines EMAIL_* settings
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL", "MealCycle <no-reply@mealcycle.local>"
+)
