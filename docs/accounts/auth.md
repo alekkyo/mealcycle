@@ -57,6 +57,11 @@ A user might sign in with an email code one day and with Apple the next. Both sh
 - **Rejected:** a custom flow + simplejwt. Kept as a reading reference in [approach-1-custom-flow.md](approach-1-custom-flow.md).
 - The user chose this for the product, not for learning: *"I want to choose what makes more sense for my app and not for my learning."*
 
+### One email screen; enumeration protection off (2026-10-17)
+- The user sees only **email → code**, whether they're new or returning. The app requests a login code, and if the account doesn't exist, it starts signup instead.
+- `ACCOUNT_PREVENT_ENUMERATION = False`. Anyone can find out whether an email has an account. Accepted: it's low-sensitivity for a meal-prep app, rate limits stop bulk checks, and it removes a "Sign up vs Log in" choice.
+- **Account takeover protection stays strict** (6-digit code, attempt limits, rate limits). Accounts still hold personal data (email, diet/health goals) and control the subscription.
+
 ## Open questions
 
 - JWT details: token lifetimes and refresh strategy for a mobile app.

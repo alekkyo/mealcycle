@@ -7,6 +7,7 @@ MealCycle is an **AI-first meal prep planner and pantry organizer**. It's a real
 ## Principles
 
 1. **Simplicity above everything.** Fewer steps is better. Every flow (signup, onboarding, planning) should ask for as little as possible and use sensible defaults. If a design adds a screen or a required field, it has to justify it.
+   - **UI:** as little text as possible, a simple UI, big text.
 2. **Production quality from day one.** Secrets stay out of git, auth is secure, every feature has tests, and payments are handled reliably.
 
 ## Business rules
