@@ -502,3 +502,24 @@ Installing a Django package is usually **4 steps**, like a Laravel package with 
 **Headless** means "no HTML pages, only a JSON API". The mobile app draws the screens. `HEADLESS_ONLY = True` turns off allauth's built-in web pages, and `HEADLESS_CLIENTS = ("app",)` exposes only the mobile flavour of the API: `/_allauth/app/v1/...`. `GET /_allauth/app/v1/config` tells the app which features are on.
 
 **Pending flows:** allauth answers "not finished yet" with **401** plus a `flows` list (e.g. `verify_email` pending) and a `meta.session_token`. The app sends that token back as the `X-Session-Token` header on the next step, so the server knows which signup or login is being continued.
+
+## Signals, `OneToOneField`, `@property`, data migrations (Task 2 of email auth)
+
+**Signals ≈ Eloquent model events / observers.**
+```python
+@receiver(post_save, sender=User)                  # ≈ User::created(fn ($user) => ...)
+def create_profile_for_new_user(sender, instance, created, **kwargs):
+    if created:                                    # post_save fires on every save; only act on inserts
+        Profile.objects.create(user=instance)
+```
+- `post_save` runs after **any** `save()`: our manager, allauth, the admin, `createsuperuser`. That's why every user is guaranteed a profile, however they were created.
+- The receiver only gets connected **when its module is imported**. `AccountsConfig.ready()` (≈ a service provider's `boot()`) imports `accounts.signals` at startup. Forget that and the signal silently never fires.
+- Caveat: `QuerySet.update()` and `bulk_create()` don't call `save()`, so they don't fire signals.
+
+**`OneToOneField(User, related_name="profile")`** ≈ `hasOne` / `belongsTo`. It's a unique foreign key, accessible from both sides: `profile.user` and `user.profile`. `on_delete=models.CASCADE` means deleting the user deletes the profile.
+
+**`@property`** turns a method into something you read like a field, without `()`: `profile.trial_is_active` (≈ an Eloquent accessor like `getTrialIsActiveAttribute`).
+
+**Data migrations** change *data*, not the schema. `makemigrations --empty` creates a blank one, and `RunPython(forward, reverse)` runs your function. Inside it, always use `apps.get_model("accounts", "User")`, never `from accounts.models import User`: the migration must see the model **as it was at that point in history**, not today's version. `RunPython.noop` is the "nothing to undo" reverse.
+
+**Admin inlines** show a related model inside the parent's edit page (`StackedInline`). We hide it on "add user" with `get_inlines()`. The signal already creates the profile there, and the inline would try to create a second one.

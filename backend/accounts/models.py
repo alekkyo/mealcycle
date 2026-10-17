@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
@@ -67,3 +69,22 @@ class User(AbstractBaseUser, PermissionsMixin):
         if not self.password:
             self.set_unusable_password()
         super().save(*args, **kwargs)
+
+
+TRIAL_LENGTH = timedelta(days=14)
+
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    trial_started_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Profile of {self.user}"
+
+    @property
+    def trial_ends_at(self):
+        return self.trial_started_at + TRIAL_LENGTH
+
+    @property
+    def trial_is_active(self):
+        return timezone.now() < self.trial_ends_at
