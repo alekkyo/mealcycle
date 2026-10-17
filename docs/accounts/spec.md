@@ -1,6 +1,6 @@
 # Accounts & Auth (email login): Design Spec
 
-**Status:** Awaiting review · **Date:** 2026-10-17 · **Sub-project:** 2 (see [product/overview.md](../product/overview.md))
+**Status:** Approved · **Date:** 2026-10-17 · **Sub-project:** 2 (see [product/overview.md](../product/overview.md))
 
 Decisions and their reasoning: [auth.md](auth.md). allauth facts: [allauth-research.md](allauth-research.md).
 
@@ -104,7 +104,7 @@ class Profile(models.Model):
 ```
 - **Created by a `post_save` signal on `User` when `created=True`** (`accounts/signals.py`, connected in `AccountsConfig.ready()`).
 - **Why `post_save` and not allauth's `user_signed_up`:** it fires for *every* way a user is created (allauth signup, the admin, `createsuperuser`, future Apple/Google). So "every user has a profile" always holds, and the trial starts exactly when the account is created. Admins get a (meaningless) trial too, which is harmless.
-- Admin: the `Profile` is shown inline on the user page (`trial_started_at` editable, so support can extend a trial).
+- Admin: the `Profile` is shown inline on the user **edit** page (`trial_started_at` editable, so support can extend a trial). It's not shown on "add user", where the signal creates it.
 - Migration `accounts/0002_profile.py`.
 
 ## 6. `GET /api/v1/me/` (`accounts/views.py`)
@@ -118,7 +118,7 @@ Built with `MeSerializer` (`accounts/serializers.py`). Without a valid token: 40
 ## 7. Email templates (`accounts/templates/account/email/`)
 
 Override both the login-code email and the signup verification-code email (exact template file names to be confirmed in Task 1):
-- **Subject:** `Your MealCycle code: 482 913` (the code grouped 3+3)
+- **Subject:** `Your MealCycle code: 482-913` (allauth groups 6-digit codes with a dash; typing it with or without the dash works)
 - **Body:** the grouped code, then `Expires in 10 minutes.` Nothing else.
 
 ## 8. Errors
