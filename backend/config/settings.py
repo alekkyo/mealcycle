@@ -16,7 +16,7 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-from config.env import env_list, env_required
+from config.env import env_list, env_required, jwt_secret
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -167,6 +167,11 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = ""
 ACCOUNT_LOGIN_BY_CODE_ENABLED = True
 ACCOUNT_LOGIN_BY_CODE_TIMEOUT = 600
 ACCOUNT_LOGIN_BY_CODE_MAX_ATTEMPTS = 3
+# 6-digit codes: cap code requests per email per DAY, so slow guessing over weeks
+# isn't possible (allauth's default is only 3/minute). Only one window per "key":
+# allauth 65.20 stores all per-key windows under one cache key, so stacking
+# "3/m/key,30/d/key" silently breaks the longer window. See docs/accounts/auth.md.
+ACCOUNT_RATE_LIMITS = {"request_login_code": "20/m/ip,30/d/key"}
 
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
@@ -177,10 +182,13 @@ HEADLESS_ONLY = True
 HEADLESS_CLIENTS = ("app",)
 HEADLESS_TOKEN_STRATEGY = "allauth.headless.tokens.strategies.jwt.JWTTokenStrategy"
 HEADLESS_JWT_ALGORITHM = "HS256"
-HEADLESS_JWT_PRIVATE_KEY = env_required("JWT_SECRET_KEY")
+HEADLESS_JWT_PRIVATE_KEY = jwt_secret("JWT_SECRET_KEY")
 HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN = 15 * 60
 HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN = 90 * 24 * 60 * 60
 HEADLESS_JWT_ROTATE_REFRESH_TOKEN = True
+# allauth checks refresh tokens against the Django session, so the session must
+# outlive the refresh token (Django's default is only 2 weeks).
+SESSION_COOKIE_AGE = HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN + 24 * 60 * 60
 
 
 # Email: SMTP (Mailtrap locally) when EMAIL_HOST is set, otherwise printed to the

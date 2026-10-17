@@ -11,6 +11,19 @@ def normalize_email_address(email: str) -> str:
     return email.strip().lower()
 
 
+def add_primary_email(user) -> None:
+    """Give a user created outside allauth's signup a verified primary EmailAddress.
+
+    allauth only lets users log in by code with a verified address on record;
+    signup creates it, but the manager and the admin bypass signup.
+    """
+    from allauth.account.models import EmailAddress
+
+    EmailAddress.objects.create(
+        user=user, email=user.email, verified=True, primary=True
+    )
+
+
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
@@ -23,6 +36,7 @@ class UserManager(BaseUserManager):
         if password:
             user.set_password(password)
         user.save(using=self._db)  # without a password, save() makes it unusable
+        add_primary_email(user)
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
@@ -35,6 +49,7 @@ class UserManager(BaseUserManager):
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
+        add_primary_email(user)
         return user
 
     def get_by_natural_key(self, username):

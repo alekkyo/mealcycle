@@ -1,7 +1,6 @@
 import re
 
 import pytest
-from allauth.account.models import EmailAddress
 from django.core import mail
 
 from accounts.models import User
@@ -13,9 +12,8 @@ SUBJECT_RE = re.compile(r"^Your MealCycle code: \d{3}-\d{3}$")
 
 
 def _verified_user(email="alex@example.com"):
-    user = User.objects.create_user(email=email)
-    EmailAddress.objects.create(user=user, email=email, verified=True, primary=True)
-    return user
+    # create_user also records a verified primary EmailAddress (see add_primary_email)
+    return User.objects.create_user(email=email)
 
 
 def test_signup_email_subject_and_body(api_client):

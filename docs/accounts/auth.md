@@ -71,6 +71,10 @@ A user might sign in with an email code one day and with Apple the next. Both sh
 - **Rejected:** 4 digits + a daily failed-guess cap (a few % yearly takeover risk for a targeted account, and an attacker could lock real users out).
 - **What an account takeover would expose** (why this matters): the email address; diet, health and allergy info; the prep schedule (when someone's home); control of the subscription (cancel/change, but card details stay at Stripe); deleting the account and its data; and AI usage billed to us. Health-related data has extra legal weight (GDPR "special category" if we store body stats or medical diets).
 
+### Rate limit: 30 code requests per email per day (2026-10-17, final review)
+- allauth's default (3/minute per email) lets slow guessing go on for weeks, which is too much for 6-digit codes. We cap it at **30 per email per day**, plus 20/minute per IP. The worst case is ~3% per year for an attacker targeting one account daily, and that victim would be getting 30 code emails a day.
+- **allauth 65.20 bug:** all per-email windows share one cache key, so `"3/m/key,30/d/key"` silently disables the daily window. We use one per-email window only. Revisit when allauth fixes it (then add back a per-minute burst limit).
+
 ## Open questions
 
 - JWT details: token lifetimes and refresh strategy for a mobile app.

@@ -19,7 +19,7 @@ Email screen ──► Code screen ──► logged in
 ```
 1. The app calls `POST /_allauth/app/v1/auth/code/request {"email"}`.
    - **Existing account:** a code is emailed, and the response says a code is pending.
-   - **Unknown email:** a 400 error (enumeration protection is off). The app then calls `POST /_allauth/app/v1/auth/signup {"email"}`, which emails a verification code.
+   - **Unknown email:** a 400 error whose `errors[0].code` is **`"unknown_email"`** (enumeration protection is off). Only then does the app call `POST /_allauth/app/v1/auth/signup {"email"}`, which emails a verification code. **Branch on the error code, not the status:** a rate-limited request is also a 400 (`too_many_login_attempts`), and sending that user to signup would fail with `email_taken`.
 2. The user types the code (or autofills it from the email subject).
    - Login: `POST /_allauth/app/v1/auth/code/confirm {"code"}`
    - Signup: `POST /_allauth/app/v1/auth/email/verify {"key": code}`
@@ -125,12 +125,18 @@ Override both the login-code email and the signup verification-code email (exact
 
 | Situation | Status |
 |---|---|
-| Wrong code | 400 (tries left) |
-| 3 wrong tries / expired | 400. The app requests a new code |
-| Rate-limited | 429 (allauth defaults, e.g. 3 code requests/min per email) |
+| Wrong code | 400 |
+| 3 wrong tries / expired | **409** (the pending login is gone). The app requests a new code |
+| Rate-limited | **400** with `errors[0].code == "too_many_login_attempts"`. Limits: 30 code requests per email per day, 20 per minute per IP |
 | Invalid email | 400 |
 | Expired access token | 401. The app refreshes |
 | Expired/rotated refresh token | 400. Back to the email screen |
+
+## 8b. Fixed after the final review
+- **Sessions last as long as refresh tokens.** allauth checks refresh tokens against the Django session, whose default life is 2 weeks, so `SESSION_COOKIE_AGE` is set to 91 days.
+- **Users created outside signup** (manager, admin, `createsuperuser`) get a verified primary `EmailAddress`, so they can log in by code. A data migration backfilled existing users. **Email is read-only** on the admin edit page until changing an email (keeping `EmailAddress` in sync) is built.
+- **Daily per-email cap** on code requests (30/day). allauth 65.20 can't stack several per-email windows (they share one cache key), so there's a single daily window.
+- **`JWT_SECRET_KEY` must be ≥ 32 characters** and not the `change-me` placeholder, because a weak HS256 key would let anyone forge tokens.
 
 ## 9. Tests
 
@@ -141,9 +147,9 @@ All through the real HTTP endpoints with DRF's `APIClient`. Codes are read from 
 4. An expired code (time moved forward 11 minutes) → fails.
 5. `/me` without a token → 401. With a garbage token → 401.
 6. Refresh → a new pair. Reusing the old refresh token → rejected.
-7. Rate limit: rapid repeated code requests → 429.
+7. Rate limits: the 21st rapid request from one IP → 400; the 31st code request for one email in a day → 400.
 8. **Every user gets a profile:** `User.objects.create_user(...)` and `create_superuser(...)` both create one.
-9. The email subject format is exactly `Your MealCycle code: ddd ddd`.
+9. The email subject format is exactly `Your MealCycle code: ddd-ddd`.
 10. The admin user page loads with the profile inline.
 
 ## 10. Task 1 is a verification spike
@@ -164,7 +170,7 @@ If any of these turns out differently, the plan adapts, and a change to the user
 
 ## Done when
 
-- [ ] With Mailtrap configured, you enter your email via `curl`, the code arrives in the Mailtrap inbox with the subject `Your MealCycle code: ddd ddd`, confirming it returns tokens, and `/me` shows your trial
+- [ ] With Mailtrap configured, you enter your email via `curl`, the code arrives in the Mailtrap inbox with the subject `Your MealCycle code: ddd-ddd`, confirming it returns tokens, and `/me` shows your trial
 - [ ] Without Mailtrap, the same flow prints the email in the `runserver` terminal
 - [ ] All tests pass locally and in CI, and ruff is clean
 - [ ] The admin shows each user's trial start

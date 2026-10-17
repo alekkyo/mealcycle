@@ -88,13 +88,14 @@ def test_refresh_rotates_and_old_token_is_rejected(api_client):
     assert response.status_code == 400
 
 
-def test_code_requests_are_rate_limited(api_client):
+def test_rapid_code_requests_from_one_ip_are_rate_limited(api_client):
     signup(api_client, "alex@example.com")
     statuses = [
         api_client.post(
             f"{APP}/auth/code/request", {"email": "alex@example.com"}, format="json"
         ).status_code
-        for _ in range(5)
+        for _ in range(21)
     ]
-    # 3 code requests per minute per email; then "too many login attempts" (400)
-    assert statuses == [401, 401, 401, 400, 400]
+    # 20 code requests per minute per IP; then "too many login attempts" (400).
+    # The per-email daily cap is tested in test_review_fixes.py.
+    assert statuses == [401] * 20 + [400]
