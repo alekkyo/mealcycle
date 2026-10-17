@@ -42,6 +42,14 @@ A user might sign in with an email code one day and with Apple the next. Both sh
 - **Tests:** Django automatically swaps in an in-memory backend (`mail.outbox`), so tests never send anything.
 - **Production:** choose a provider when we deploy (Postmark / Resend / SES); it's a settings + API key change.
 
+### Implementation: `django-allauth` in headless mode (2026-10-17)
+- **Chosen:** django-allauth's headless API (a JSON API for the mobile app), configured for passwordless email login by code.
+- **Why:** Apple + Google login are definitely coming. allauth already handles them, including linking a social login to an existing email account, Apple relay emails and ID-token verification. It's battle-tested security code (codes, expiry, attempt limits, rate limits, enumeration protection).
+- **Scaling:** no meaningful difference from a custom build. Both use stateless JWT checks, the extra tables are small and only touched at login, and rate limiting needs a shared cache (Redis) with multiple servers either way.
+- **Trade-off:** its emails contain a code; a magic link has to be added via template customisation (being researched). Its API shape (`/_allauth/app/v1/...`) and models come with it.
+- **Rejected:** a custom flow + simplejwt. Kept as a reading reference in [approach-1-custom-flow.md](approach-1-custom-flow.md).
+- The user chose this for the product, not for learning: *"I want to choose what makes more sense for my app and not for my learning."*
+
 ## Open questions
 
 - JWT details: token lifetimes and refresh strategy for a mobile app.
