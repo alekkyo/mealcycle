@@ -476,3 +476,13 @@ Commands: `showmigrations` (applied/pending), `sqlmigrate accounts 0001` (see th
 | `tests/__init__.py`, unique file names | Works fine | Harmless, until you add a same-named file |
 
 Lesson: the only truly dangerous one is `migrations/__init__.py`, and our test suite (which needs the tables) is what catches it. `startapp` always creates it, so it's mostly a risk when folders are created by hand.
+
+### How `admin.py` gets loaded
+
+`admin.py` registers **models** (not apps). An app only gets a section in the admin once at least one of its models is registered.
+
+- At startup, `django.contrib.admin` **autodiscovers**: it imports the `admin.py` of every app in `INSTALLED_APPS`, if there is one. Importing runs `@admin.register(User)`, which registers the model.
+- Our admin home shows **Accounts → Users** (from `accounts/admin.py`) and **Authentication and Authorization → Groups** (from Django's own `auth/admin.py`). There's no "Core" section because `core` has no models and no `admin.py`.
+- A model without registration still has its table, just no admin page.
+- ≈ **Nova/Filament resources**: one class per model, auto-discovered, defining columns, filters and forms. Django looks in each app's `admin.py` instead of one central folder.
+- `admin.py` is just the filename autodiscovery looks for. Registering somewhere else technically works, but always use `admin.py`.
