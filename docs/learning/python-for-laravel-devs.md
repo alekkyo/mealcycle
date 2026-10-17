@@ -384,3 +384,50 @@ Any test that has a parameter named `api_client` receives a new `APIClient`. pyt
 Two differences from Laravel:
 - **URLs are matched in pieces.** The project urls.py strips its prefix and hands the rest to the app's urls.py.
 - **DRF checks auth inside the view** (in `dispatch()`), using class attributes or the `REST_FRAMEWORK` defaults, not with route middleware. That's why `HealthView` sets `AllowAny`: otherwise the global `IsAuthenticated` default returns 403.
+
+## Project package vs apps, and how Django finds them
+
+```
+mealcycle/                ← the git repo
+└── backend/
+    ├── manage.py
+    ├── mealcycle/        ← the PROJECT config package (named by `startproject mealcycle`)
+    ├── accounts/         ← an APP
+    └── core/             ← an APP
+```
+
+- **The project package** (`backend/mealcycle/`) is configuration and wiring: `settings.py`, the root `urls.py`, `wsgi.py`/`asgi.py`, our `env.py`. It is **not** in `INSTALLED_APPS`, so it can't have models, migrations or admin. ≈ Laravel's `config/` + `bootstrap/`.
+- **Apps** (`accounts/`, `core/`, later `pantry/`, `meals/`) are features. Django only discovers models, migrations, admin and so on in apps listed in `INSTALLED_APPS`.
+- **`core`** is for project-wide features that don't belong to one domain (health check now; shared base models or audit logs later). It's an app, so it can grow tables. The config package can't.
+
+**How Django finds the config package:**
+1. `python manage.py` puts the script's folder (`backend/`) on `sys.path`, Python's import search path. So `import mealcycle` finds `backend/mealcycle/` (a package, because it has `__init__.py`). This is also why `import accounts` works.
+2. `DJANGO_SETTINGS_MODULE = "mealcycle.settings"` is a dotted import path (dots = folders) to the settings file. It's set in `manage.py`, `wsgi.py`, `asgi.py` (each `setdefault`, so a real env var wins) and in `pyproject.toml` for pytest.
+3. `settings.py` then names the rest: `ROOT_URLCONF = "mealcycle.urls"`, `WSGI_APPLICATION = "mealcycle.wsgi.application"`.
+4. `BASE_DIR = Path(__file__).resolve().parent.parent`. `__file__` (≈ PHP `__FILE__`) is `backend/mealcycle/settings.py`, so two `.parent`s give `backend/`.
+
+Renaming the folder means changing the folder **and** every dotted path that mentions it, together. Changing only one gives `ModuleNotFoundError`.
+
+## Typical layouts
+
+| Layout | Config package | Apps | Seen in |
+|---|---|---|---|
+| Default | `<project>/` | next to `manage.py` | docs, tutorials (what `startproject` makes) |
+| **`config/`** | `config/` | next to `manage.py` | cookiecutter-django, many companies |
+| Grouped apps | `config/` | inside `apps/` (or a product-named package) | large codebases with many apps |
+
+Inside every app:
+```
+app/
+├── __init__.py, apps.py
+├── models.py          ≈ app/Models
+├── migrations/        ≈ database/migrations (but generated)
+├── admin.py           ≈ Nova/Filament resources
+├── serializers.py     ≈ FormRequest + API Resource
+├── views.py           ≈ Controllers
+├── urls.py            ≈ a routes/*.php file
+├── services.py        ≈ app/Services (optional, business logic)
+└── tests/
+```
+
+**Biggest difference from Laravel:** Laravel groups by **type** (all models in `app/Models`). Django groups by **feature** (everything pantry-related lives in `pantry/`). When a file grows, turn it into a package: `models.py` → `models/__init__.py` + `models/pantry_item.py`.
