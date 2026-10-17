@@ -465,3 +465,14 @@ Commands: `showmigrations` (applied/pending), `sqlmigrate accounts 0001` (see th
 - **Django gotcha:** never import models in an app's `__init__.py`. Apps are imported before models can load, so you get `AppRegistryNotReady`.
 - **Why still needed:** Python 3.3+ can import folders without it ("namespace packages"), but Django **ignores `migrations/` folders without `__init__.py`**, and pytest relies on `tests/__init__.py` so that same-named test files in different apps don't clash.
 - Rule: every folder of Python code gets one, and it's normally empty. `startapp` creates them; for new folders like `tests/`, create one with `touch tests/__init__.py`.
+
+### What actually happens if you forget one (tested in a throwaway copy, 2026-10-17)
+
+| Missing | Result | Silent? |
+|---|---|---|
+| `accounts/migrations/__init__.py` | Django treats the app as having **"(no migrations)"**. `makemigrations --check` still says "No changes detected" (exit 0), and `migrate` would skip the app's tables. Only the **tests** caught it (20 errors: table doesn't exist). | ⚠️ **Yes, apart from the tests.** The dangerous one |
+| `accounts/__init__.py` (the app) | Everything still works: `check`, migrations, 25 tests pass. Python imports it as a namespace package. | Harmless today, but non-standard |
+| `tests/__init__.py`, same-named test files in two apps | pytest stops with **"import file mismatch"** | No, it fails loudly |
+| `tests/__init__.py`, unique file names | Works fine | Harmless, until you add a same-named file |
+
+Lesson: the only truly dangerous one is `migrations/__init__.py`, and our test suite (which needs the tables) is what catches it. `startapp` always creates it, so it's mostly a risk when folders are created by hand.
