@@ -35,9 +35,16 @@ A user might sign in with an email code one day and with Apple the next. Both sh
 - This sub-project includes the `Profile` model and a small "is the trial active?" check. **Blocking access** after the trial stays in the Billing sub-project (with Stripe).
 - **Why:** it's the simplest rule ("14 days from signup") and can't be gamed. Starting at onboarding completion or first plan would add a "trial not started" state that every feature has to handle.
 
+### Email: Mailtrap for local development, production provider decided at deployment (2026-10-17)
+- Code sends email through Django's email layer (`django.core.mail`, ≈ Laravel's `Mail`), so the provider is only configuration.
+- **Local:** Mailtrap's testing inbox over SMTP. Emails are caught in Mailtrap's web inbox and never reach real people. Credentials go in `backend/.env` (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`).
+- **No email config set** (e.g. CI, a fresh clone): fall back to the console backend, which prints the email in the terminal.
+- **Tests:** Django automatically swaps in an in-memory backend (`mail.outbox`), so tests never send anything.
+- **Production:** choose a provider when we deploy (Postmark / Resend / SES); it's a settings + API key change.
+
 ## Open questions
 
 - JWT details: token lifetimes and refresh strategy for a mobile app.
 - How long codes and links stay valid, rate limiting, and protection against abuse.
-- Which email provider sends the emails (Postmark, Resend, SES, …)?
+- Production email provider (Postmark, Resend, SES, …): decided at deployment.
 - Apple's "Hide My Email" relay addresses: how do we match those to an existing account?
