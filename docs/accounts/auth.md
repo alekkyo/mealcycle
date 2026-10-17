@@ -30,10 +30,14 @@ A user might sign in with an email code one day and with Apple the next. Both sh
 - **Sign in with Apple / Google is postponed to a later sub-project, well after onboarding.** Reminder: Apple requires Sign in with Apple in the iOS app *if* Google login is offered, so the two ship together before App Store submission.
 - **Why:** email login works on its own with no third-party developer accounts, and it can be tested end to end with `curl` right away.
 
+### The 14-day trial starts when the account is created (2026-10-17)
+- The moment someone first verifies their email, we create the account **and** a `Profile` with `trial_started_at = now`.
+- This sub-project includes the `Profile` model and a small "is the trial active?" check. **Blocking access** after the trial stays in the Billing sub-project (with Stripe).
+- **Why:** it's the simplest rule ("14 days from signup") and can't be gamed. Starting at onboarding completion or first plan would add a "trial not started" state that every feature has to handle.
+
 ## Open questions
 
 - JWT details: token lifetimes and refresh strategy for a mobile app.
 - How long codes and links stay valid, rate limiting, and protection against abuse.
 - Which email provider sends the emails (Postmark, Resend, SES, …)?
 - Apple's "Hide My Email" relay addresses: how do we match those to an existing account?
-- When does the 14-day trial start: at first login, or when onboarding is complete?
