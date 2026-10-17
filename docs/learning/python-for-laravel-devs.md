@@ -531,3 +531,5 @@ def create_profile_for_new_user(sender, instance, created, **kwargs):
 - Our templates don't use `{% extends "account/email/base_message.txt" %}`, which leaves out allauth's "Hello from example.com" header and footer on purpose. Less text.
 - **Testing email:** during tests Django swaps the email backend for an in-memory one. Every sent email lands in `django.core.mail.outbox` (≈ `Mail::fake()` + `Mail::assertSent()`).
 - **`re`** is Python's regex module: `re.compile(r"\d{3}-\d{3}")`, then `.search()` / `.match()`. `r"..."` is a raw string, so backslashes aren't treated as escapes.
+
+**Gotcha found while building this:** tests are isolated for the **database** (each test's changes are rolled back), but **not for the cache**. allauth's rate limits ("1 verification email per 10 s per address") live in the cache, so a test signing up `new@example.com` silently stopped the *next* test's email from being sent. Fix: an `autouse=True` fixture in `conftest.py` that runs `cache.clear()` before every test. `autouse` means "apply to every test without being asked for"; `yield` splits it into setup (before) and teardown (after), ≈ PHPUnit's `setUp()`/`tearDown()`.
