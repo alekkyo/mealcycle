@@ -62,6 +62,15 @@ A user might sign in with an email code one day and with Apple the next. Both sh
 - `ACCOUNT_PREVENT_ENUMERATION = False`. Anyone can find out whether an email has an account. Accepted: it's low-sensitivity for a meal-prep app, rate limits stop bulk checks, and it removes a "Sign up vs Log in" choice.
 - **Account takeover protection stays strict** (6-digit code, attempt limits, rate limits). Accounts still hold personal data (email, diet/health goals) and control the subscription.
 
+### 6-digit code, made easy to remember (2026-10-17)
+- **6 digits**, not 4. Resetting the code doesn't help, because each guess has the same odds against a new random code. A script would guess a 4-digit code in about a week, versus years for 6 digits.
+- To address the user's concern about remembering the code while switching apps:
+  1. The code goes in the **email subject** ("Your MealCycle code: 482 913"), so it's readable in the notification banner without leaving the app.
+  2. **Autofill** (iOS/Android one-time-code suggestions) works for numeric codes.
+  3. The code is shown **grouped** (`482 913`).
+- **Rejected:** 4 digits + a daily failed-guess cap (a few % yearly takeover risk for a targeted account, and an attacker could lock real users out).
+- **What an account takeover would expose** (why this matters): the email address; diet, health and allergy info; the prep schedule (when someone's home); control of the subscription (cancel/change, but card details stay at Stripe); deleting the account and its data; and AI usage billed to us. Health-related data has extra legal weight (GDPR "special category" if we store body stats or medical diets).
+
 ## Open questions
 
 - JWT details: token lifetimes and refresh strategy for a mobile app.
