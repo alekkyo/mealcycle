@@ -1,7 +1,7 @@
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from mealcycle.env import env_list, env_required
+from config.env import env_list, env_required
 
 
 def test_env_required_returns_value(monkeypatch):

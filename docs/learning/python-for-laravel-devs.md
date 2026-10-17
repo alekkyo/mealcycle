@@ -203,7 +203,7 @@ Order of operations:
 
 When we ran it on the scaffold, the formatter rewrote 5 files, mostly changing `'single'` quotes to `"double"`. In Python both kinds of quote mean exactly the same thing (unlike PHP, where only `"..."` interpolates variables).
 
-## Python basics from Task 2 (`mealcycle/env.py`)
+## Python basics from Task 2 (`config/env.py`)
 
 ```python
 import os                                              # import a whole module, then use os.environ
@@ -216,7 +216,7 @@ def env_required(name: str) -> str:                    # function with type hint
     return value
 ```
 
-- **Modules:** every `.py` file is a module, and every folder with an `__init__.py` is a **package**. `from mealcycle.env import env_list` means "file `mealcycle/env.py`, the name `env_list`". There's no autoloader or namespace declaration; the folder path *is* the namespace.
+- **Modules:** every `.py` file is a module, and every folder with an `__init__.py` is a **package**. `from config.env import env_list` means "file `config/env.py`, the name `env_list`". There's no autoloader or namespace declaration; the folder path *is* the namespace.
 - **Indentation is syntax.** Blocks are defined by 4-space indentation after a `:`. There are no `{}` and no `;`.
 - **Type hints** (`name: str -> str`) work like TypeScript annotations, but Python **doesn't enforce them at runtime**. They're for editors and type-checkers.
 - **Truthiness:** `if not value:` is true for `None`, `""`, `0`, `[]` and `{}`, like PHP's `empty()`.
@@ -300,7 +300,7 @@ A decorator is a function that receives the class (or function) below it and can
 
 ```
 GET /api/v1/health/
-  → mealcycle/urls.py   path("api/v1/", include("core.urls"))   ≈ Route::prefix('api/v1')->group(base_path('routes/core.php'))
+  → config/urls.py   path("api/v1/", include("core.urls"))   ≈ Route::prefix('api/v1')->group(base_path('routes/core.php'))
   → core/urls.py        path("health/", HealthView.as_view())   ≈ Route::get('health', HealthController::class)
   → core/views.py       HealthView.get(self, request)           ≈ HealthController::__invoke(Request $request)
   → Response({...})     DRF turns the dict into JSON           ≈ response()->json([...])
@@ -352,3 +352,137 @@ Any test that has a parameter named `api_client` receives a new `APIClient`. pyt
 ```
 - `x if condition else y` is Python's ternary (≈ `condition ? x : y`).
 - `*[...]` **spreads** a list into the surrounding list (≈ JS `...[...]`, PHP `...[...]`). So the list is `[JSON, Browsable]` when `DEBUG` is on, and just `[JSON]` otherwise.
+
+## Request lifecycle: every file a GET request passes through
+
+**At startup (once):**
+1. `manage.py` sets `DJANGO_SETTINGS_MODULE = "config.settings"` (≈ `artisan`).
+2. `config/settings.py` loads `.env`, apps, `MIDDLEWARE`, `ROOT_URLCONF` and `REST_FRAMEWORK`.
+3. `config/wsgi.py` creates `application`, the entry point for every request (≈ `public/index.php`). `runserver` finds it via `WSGI_APPLICATION`, and gunicorn loads it in production.
+
+**Per request (`GET /api/v1/health/`):**
+```
+① config/wsgi.py      application receives the HTTP request → Django builds `request`
+② MIDDLEWARE              settings.py list, top → bottom (sessions, CSRF, auth, ...)
+③ config/urls.py       "api/v1/" matches → include("core.urls") gets "health/"
+④ core/urls.py            "health/" → HealthView.as_view()
+⑤ DRF APIView.dispatch()  authentication_classes → permission_classes → picks get()
+⑥ core/views.py           HealthView.get() → ensure_connection() → Response({...})
+⑦ DRF renderer            dict → JSON (or the browsable HTML page under DEBUG)
+⑧ MIDDLEWARE              back up, bottom → top, adding response headers
+```
+
+| Step | Django | Laravel |
+|---|---|---|
+| Entry point | `config/wsgi.py` | `public/index.php` |
+| Global middleware | `MIDDLEWARE` in settings | `Kernel.php` / `bootstrap/app.php` |
+| Root routes | `config/urls.py` | `routes/api.php` |
+| Grouped routes | `include("core.urls")` | `Route::prefix()->group()` |
+| Per-route auth | `permission_classes` on the view | `->middleware('auth')` on the route |
+| Controller | `HealthView.get()` | `HealthController@index` |
+
+Two differences from Laravel:
+- **URLs are matched in pieces.** The project urls.py strips its prefix and hands the rest to the app's urls.py.
+- **DRF checks auth inside the view** (in `dispatch()`), using class attributes or the `REST_FRAMEWORK` defaults, not with route middleware. That's why `HealthView` sets `AllowAny`: otherwise the global `IsAuthenticated` default returns 403.
+
+## Project package vs apps, and how Django finds them
+
+> **Update (2026-10-17):** we renamed `backend/mealcycle/` to **`backend/config/`** so it can't be confused with the repo. Below, the explanation of *why* uses the old name; the current paths are `config/settings.py`, `config.settings`, `config.urls`, and so on. The rename had to change the folder **and** all 8 dotted paths together (4× `DJANGO_SETTINGS_MODULE`, `ROOT_URLCONF`, `WSGI_APPLICATION`, 2× `from config.env import`).
+
+```
+mealcycle/                ← the git repo
+└── backend/
+    ├── manage.py
+    ├── mealcycle/        ← the PROJECT config package (named by `startproject mealcycle`)
+    ├── accounts/         ← an APP
+    └── core/             ← an APP
+```
+
+- **The project package** (`backend/mealcycle/`) is configuration and wiring: `settings.py`, the root `urls.py`, `wsgi.py`/`asgi.py`, our `env.py`. It is **not** in `INSTALLED_APPS`, so it can't have models, migrations or admin. ≈ Laravel's `config/` + `bootstrap/`.
+- **Apps** (`accounts/`, `core/`, later `pantry/`, `meals/`) are features. Django only discovers models, migrations, admin and so on in apps listed in `INSTALLED_APPS`.
+- **`core`** is for project-wide features that don't belong to one domain (health check now; shared base models or audit logs later). It's an app, so it can grow tables. The config package can't.
+
+**How Django finds the config package:**
+1. `python manage.py` puts the script's folder (`backend/`) on `sys.path`, Python's import search path. So `import mealcycle` finds `backend/mealcycle/` (a package, because it has `__init__.py`). This is also why `import accounts` works.
+2. `DJANGO_SETTINGS_MODULE = "mealcycle.settings"` is a dotted import path (dots = folders) to the settings file. It's set in `manage.py`, `wsgi.py`, `asgi.py` (each `setdefault`, so a real env var wins) and in `pyproject.toml` for pytest.
+3. `settings.py` then names the rest: `ROOT_URLCONF = "mealcycle.urls"`, `WSGI_APPLICATION = "mealcycle.wsgi.application"`.
+4. `BASE_DIR = Path(__file__).resolve().parent.parent`. `__file__` (≈ PHP `__FILE__`) is `backend/mealcycle/settings.py`, so two `.parent`s give `backend/`.
+
+Renaming the folder means changing the folder **and** every dotted path that mentions it, together. Changing only one gives `ModuleNotFoundError`.
+
+## Typical layouts
+
+| Layout | Config package | Apps | Seen in |
+|---|---|---|---|
+| Default | `<project>/` | next to `manage.py` | docs, tutorials (what `startproject` makes) |
+| **`config/`** | `config/` | next to `manage.py` | cookiecutter-django, many companies |
+| Grouped apps | `config/` | inside `apps/` (or a product-named package) | large codebases with many apps |
+
+Inside every app:
+```
+app/
+├── __init__.py, apps.py
+├── models.py          ≈ app/Models
+├── migrations/        ≈ database/migrations (but generated)
+├── admin.py           ≈ Nova/Filament resources
+├── serializers.py     ≈ FormRequest + API Resource
+├── views.py           ≈ Controllers
+├── urls.py            ≈ a routes/*.php file
+├── services.py        ≈ app/Services (optional, business logic)
+└── tests/
+```
+
+**Biggest difference from Laravel:** Laravel groups by **type** (all models in `app/Models`). Django groups by **feature** (everything pantry-related lives in `pantry/`). When a file grows, turn it into a package: `models.py` → `models/__init__.py` + `models/pantry_item.py`.
+
+## Migrations per app
+
+- **Every app with models has its own `migrations/` folder.** Django's built-in apps (`auth`, `admin`, `sessions`, `contenttypes`) have one too, inside `venv/`. Django calls these **apps**. Think "one app per business domain".
+- **The number (`0001`, `0002`) is a sequence within one app only.** `accounts/0001` and `auth/0001` are unrelated.
+- **The real ordering comes from `dependencies`** inside each migration:
+  ```python
+  # accounts/migrations/0001_initial.py
+  dependencies = [("auth", "0012_alter_user_first_name_max_length")]
+  ```
+  `migrate` builds a **graph** of all apps' migrations (each one depends on the previous one in its app, plus anything listed), sorts it so dependencies come first, and runs only the ones not yet applied.
+- An app whose model points at the user, like a future `pantry`, gets `migrations.swappable_dependency(settings.AUTH_USER_MODEL)`, so it always runs after the User table exists.
+- **The `django_migrations` table** records what has run (≈ Laravel's `migrations` table). In our DB the order is `contenttypes` → `auth` → `accounts`, following the graph.
+
+| | Laravel | Django |
+|---|---|---|
+| Where | one `database/migrations/` | `migrations/` per app |
+| Order | filename timestamp | per-app number + `dependencies` graph |
+| Written by | you | generated by `makemigrations`, then reviewed |
+| Rollback | `migrate:rollback` | `migrate <app> <number>` / `migrate <app> zero` |
+
+Commands: `showmigrations` (applied/pending), `sqlmigrate accounts 0001` (see the SQL), `makemigrations --name add_expiry_date pantry` (choose the name).
+
+**Team gotcha:** two branches each adding `pantry/0002_*` causes a "Conflicting migrations" error. Fix it with `makemigrations --merge`, which creates a `0003_merge` that depends on both.
+
+## `__init__.py`
+
+- **It marks a folder as a package**, i.e. importable. The folder path *is* the import path: `accounts/models.py` → `from accounts.models import User`. That's Python's alternative to Composer's PSR-4 mapping, with no config file.
+- **It runs the first time the package is imported.** Usually it's empty (all 7 of ours are 0 bytes). With content, it works like a JS `index.ts`: setup code, or re-exports (`from pkg.helpers import x` inside it lets callers write `from pkg import x`).
+- **Django gotcha:** never import models in an app's `__init__.py`. Apps are imported before models can load, so you get `AppRegistryNotReady`.
+- **Why still needed:** Python 3.3+ can import folders without it ("namespace packages"), but Django **ignores `migrations/` folders without `__init__.py`**, and pytest relies on `tests/__init__.py` so that same-named test files in different apps don't clash.
+- Rule: every folder of Python code gets one, and it's normally empty. `startapp` creates them; for new folders like `tests/`, create one with `touch tests/__init__.py`.
+
+### What actually happens if you forget one (tested in a throwaway copy, 2026-10-17)
+
+| Missing | Result | Silent? |
+|---|---|---|
+| `accounts/migrations/__init__.py` | Django treats the app as having **"(no migrations)"**. `makemigrations --check` still says "No changes detected" (exit 0), and `migrate` would skip the app's tables. Only the **tests** caught it (20 errors: table doesn't exist). | ⚠️ **Yes, apart from the tests.** The dangerous one |
+| `accounts/__init__.py` (the app) | Everything still works: `check`, migrations, 25 tests pass. Python imports it as a namespace package. | Harmless today, but non-standard |
+| `tests/__init__.py`, same-named test files in two apps | pytest stops with **"import file mismatch"** | No, it fails loudly |
+| `tests/__init__.py`, unique file names | Works fine | Harmless, until you add a same-named file |
+
+Lesson: the only truly dangerous one is `migrations/__init__.py`, and our test suite (which needs the tables) is what catches it. `startapp` always creates it, so it's mostly a risk when folders are created by hand.
+
+### How `admin.py` gets loaded
+
+`admin.py` registers **models** (not apps). An app only gets a section in the admin once at least one of its models is registered.
+
+- At startup, `django.contrib.admin` **autodiscovers**: it imports the `admin.py` of every app in `INSTALLED_APPS`, if there is one. Importing runs `@admin.register(User)`, which registers the model.
+- Our admin home shows **Accounts → Users** (from `accounts/admin.py`) and **Authentication and Authorization → Groups** (from Django's own `auth/admin.py`). There's no "Core" section because `core` has no models and no `admin.py`.
+- A model without registration still has its table, just no admin page.
+- ≈ **Nova/Filament resources**: one class per model, auto-discovered, defining columns, filters and forms. Django looks in each app's `admin.py` instead of one central folder.
+- `admin.py` is just the filename autodiscovery looks for. Registering somewhere else technically works, but always use `admin.py`.

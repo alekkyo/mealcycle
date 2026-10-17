@@ -9,5 +9,5 @@ select = ["E", "W", "F", "I", "B", "UP", "DJ"]
 ignore = ["E501"]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "mealcycle.settings"
+DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]
