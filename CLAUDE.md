@@ -8,7 +8,7 @@ AI-powered meal prep planner and pantry organizer.
 mealcycle/
 ├── .github/workflows/  # CI (backend.yml)
 ├── backend/            # Django REST API (Python 3.13)
-│   ├── mealcycle/      # Project settings, root urls, env helpers
+│   ├── config/         # Project settings, root urls, env helpers
 │   ├── accounts/       # Custom User model (email-only, passwordless)
 │   ├── core/           # Project-wide features (health check)
 │   ├── venv/           # Python virtual environment (gitignored)
@@ -57,7 +57,7 @@ ruff check . && ruff format .   # lint + format (run before every PR)
 - Models use snake_case field names
 - Serializers in `serializers.py` per app
 - Views in `views.py` per app, using DRF class-based views
-- URLs registered in each app's `urls.py`, included in `mealcycle/urls.py`
+- URLs registered in each app's `urls.py`, included in `config/urls.py`
 - Migrations committed to the repo
 
 ## Workflow

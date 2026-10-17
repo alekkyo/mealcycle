@@ -203,7 +203,7 @@ Order of operations:
 
 When we ran it on the scaffold, the formatter rewrote 5 files, mostly changing `'single'` quotes to `"double"`. In Python both kinds of quote mean exactly the same thing (unlike PHP, where only `"..."` interpolates variables).
 
-## Python basics from Task 2 (`mealcycle/env.py`)
+## Python basics from Task 2 (`config/env.py`)
 
 ```python
 import os                                              # import a whole module, then use os.environ
@@ -216,7 +216,7 @@ def env_required(name: str) -> str:                    # function with type hint
     return value
 ```
 
-- **Modules:** every `.py` file is a module, and every folder with an `__init__.py` is a **package**. `from mealcycle.env import env_list` means "file `mealcycle/env.py`, the name `env_list`". There's no autoloader or namespace declaration; the folder path *is* the namespace.
+- **Modules:** every `.py` file is a module, and every folder with an `__init__.py` is a **package**. `from config.env import env_list` means "file `config/env.py`, the name `env_list`". There's no autoloader or namespace declaration; the folder path *is* the namespace.
 - **Indentation is syntax.** Blocks are defined by 4-space indentation after a `:`. There are no `{}` and no `;`.
 - **Type hints** (`name: str -> str`) work like TypeScript annotations, but Python **doesn't enforce them at runtime**. They're for editors and type-checkers.
 - **Truthiness:** `if not value:` is true for `None`, `""`, `0`, `[]` and `{}`, like PHP's `empty()`.
@@ -300,7 +300,7 @@ A decorator is a function that receives the class (or function) below it and can
 
 ```
 GET /api/v1/health/
-  → mealcycle/urls.py   path("api/v1/", include("core.urls"))   ≈ Route::prefix('api/v1')->group(base_path('routes/core.php'))
+  → config/urls.py   path("api/v1/", include("core.urls"))   ≈ Route::prefix('api/v1')->group(base_path('routes/core.php'))
   → core/urls.py        path("health/", HealthView.as_view())   ≈ Route::get('health', HealthController::class)
   → core/views.py       HealthView.get(self, request)           ≈ HealthController::__invoke(Request $request)
   → Response({...})     DRF turns the dict into JSON           ≈ response()->json([...])
@@ -356,15 +356,15 @@ Any test that has a parameter named `api_client` receives a new `APIClient`. pyt
 ## Request lifecycle: every file a GET request passes through
 
 **At startup (once):**
-1. `manage.py` sets `DJANGO_SETTINGS_MODULE = "mealcycle.settings"` (≈ `artisan`).
-2. `mealcycle/settings.py` loads `.env`, apps, `MIDDLEWARE`, `ROOT_URLCONF` and `REST_FRAMEWORK`.
-3. `mealcycle/wsgi.py` creates `application`, the entry point for every request (≈ `public/index.php`). `runserver` finds it via `WSGI_APPLICATION`, and gunicorn loads it in production.
+1. `manage.py` sets `DJANGO_SETTINGS_MODULE = "config.settings"` (≈ `artisan`).
+2. `config/settings.py` loads `.env`, apps, `MIDDLEWARE`, `ROOT_URLCONF` and `REST_FRAMEWORK`.
+3. `config/wsgi.py` creates `application`, the entry point for every request (≈ `public/index.php`). `runserver` finds it via `WSGI_APPLICATION`, and gunicorn loads it in production.
 
 **Per request (`GET /api/v1/health/`):**
 ```
-① mealcycle/wsgi.py      application receives the HTTP request → Django builds `request`
+① config/wsgi.py      application receives the HTTP request → Django builds `request`
 ② MIDDLEWARE              settings.py list, top → bottom (sessions, CSRF, auth, ...)
-③ mealcycle/urls.py       "api/v1/" matches → include("core.urls") gets "health/"
+③ config/urls.py       "api/v1/" matches → include("core.urls") gets "health/"
 ④ core/urls.py            "health/" → HealthView.as_view()
 ⑤ DRF APIView.dispatch()  authentication_classes → permission_classes → picks get()
 ⑥ core/views.py           HealthView.get() → ensure_connection() → Response({...})
@@ -374,9 +374,9 @@ Any test that has a parameter named `api_client` receives a new `APIClient`. pyt
 
 | Step | Django | Laravel |
 |---|---|---|
-| Entry point | `mealcycle/wsgi.py` | `public/index.php` |
+| Entry point | `config/wsgi.py` | `public/index.php` |
 | Global middleware | `MIDDLEWARE` in settings | `Kernel.php` / `bootstrap/app.php` |
-| Root routes | `mealcycle/urls.py` | `routes/api.php` |
+| Root routes | `config/urls.py` | `routes/api.php` |
 | Grouped routes | `include("core.urls")` | `Route::prefix()->group()` |
 | Per-route auth | `permission_classes` on the view | `->middleware('auth')` on the route |
 | Controller | `HealthView.get()` | `HealthController@index` |
@@ -386,6 +386,8 @@ Two differences from Laravel:
 - **DRF checks auth inside the view** (in `dispatch()`), using class attributes or the `REST_FRAMEWORK` defaults, not with route middleware. That's why `HealthView` sets `AllowAny`: otherwise the global `IsAuthenticated` default returns 403.
 
 ## Project package vs apps, and how Django finds them
+
+> **Update (2026-10-17):** we renamed `backend/mealcycle/` to **`backend/config/`** so it can't be confused with the repo. Below, the explanation of *why* uses the old name; the current paths are `config/settings.py`, `config.settings`, `config.urls`, and so on. The rename had to change the folder **and** all 8 dotted paths together (4× `DJANGO_SETTINGS_MODULE`, `ROOT_URLCONF`, `WSGI_APPLICATION`, 2× `from config.env import`).
 
 ```
 mealcycle/                ← the git repo

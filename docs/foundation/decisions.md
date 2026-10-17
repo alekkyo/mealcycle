@@ -81,6 +81,11 @@ Local Postgres: PostgreSQL 17 (DBngin) on `localhost:5432`.
 - **GitHub Actions CI** on every PR and on push to main: ruff check, ruff format --check, `makemigrations --check`, pytest against a Postgres 17 service.
 - **Why CI now:** it's a product we're launching, so every PR from the first one onward is checked automatically.
 
+### Config package renamed `mealcycle/` → `config/` (2026-10-17)
+- The project package `backend/mealcycle/` is now `backend/config/`. The folder and all 8 dotted import paths (`DJANGO_SETTINGS_MODULE` ×4, `ROOT_URLCONF`, `WSGI_APPLICATION`, `from config.env import` ×2) were changed together.
+- **Why:** having the repo, the project and the config package all called "mealcycle" was confusing. `config/` says what the folder does, and it's the cookiecutter-django convention. Apps stay next to `manage.py` (CLAUDE.md convention), and there's no `apps/` container until there are many apps.
+- The database is still named `mealcycle`. Only the Python package changed.
+
 ## Open questions
 
 None. The design is complete. See [spec.md](spec.md).

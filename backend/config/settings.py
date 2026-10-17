@@ -16,7 +16,7 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-from mealcycle.env import env_list, env_required
+from config.env import env_list, env_required
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -58,7 +58,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "mealcycle.urls"
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
@@ -75,7 +75,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "mealcycle.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database

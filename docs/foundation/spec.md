@@ -20,7 +20,7 @@ Login flows (email code/link, Apple, Google, JWT), user profiles, the trial, onb
   - `Django` (5.2.x LTS), `djangorestframework`, `psycopg[binary]` (v3, replaces `psycopg2-binary`), `python-dotenv`, `dj-database-url`
 - **`backend/requirements-dev.txt`**: starts with `-r requirements.txt`, then `pytest`, `pytest-django`, `ruff`.
 
-## 2. Configuration (`mealcycle/settings.py`)
+## 2. Configuration (`config/settings.py`, originally `mealcycle/settings.py`)
 
 Kept as one settings file. Values that differ between environments come from env vars, and `backend/.env` is loaded with `python-dotenv` if it exists.
 
@@ -105,7 +105,7 @@ REST_FRAMEWORK = {
 ## 8. Linting and formatting (ruff)
 
 All tool configuration lives in `backend/pyproject.toml`:
-- `[tool.pytest.ini_options]`: `DJANGO_SETTINGS_MODULE = "mealcycle.settings"`
+- `[tool.pytest.ini_options]`: `DJANGO_SETTINGS_MODULE = "config.settings"` (originally `"mealcycle.settings"`)
 - `[tool.ruff]`: target `py313`, line length 88 (ruff's default), `migrations` folders excluded
 - `[tool.ruff.lint]` rules: `E`, `W`, `F` (errors), `I` (import sorting), `B` (bug patterns), `UP` (modern syntax), `DJ` (Django). `E501` (line too long) is ignored because the formatter handles line length
 
