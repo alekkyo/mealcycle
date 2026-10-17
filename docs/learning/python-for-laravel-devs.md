@@ -352,3 +352,35 @@ Any test that has a parameter named `api_client` receives a new `APIClient`. pyt
 ```
 - `x if condition else y` is Python's ternary (≈ `condition ? x : y`).
 - `*[...]` **spreads** a list into the surrounding list (≈ JS `...[...]`, PHP `...[...]`). So the list is `[JSON, Browsable]` when `DEBUG` is on, and just `[JSON]` otherwise.
+
+## Request lifecycle: every file a GET request passes through
+
+**At startup (once):**
+1. `manage.py` sets `DJANGO_SETTINGS_MODULE = "mealcycle.settings"` (≈ `artisan`).
+2. `mealcycle/settings.py` loads `.env`, apps, `MIDDLEWARE`, `ROOT_URLCONF` and `REST_FRAMEWORK`.
+3. `mealcycle/wsgi.py` creates `application`, the entry point for every request (≈ `public/index.php`). `runserver` finds it via `WSGI_APPLICATION`, and gunicorn loads it in production.
+
+**Per request (`GET /api/v1/health/`):**
+```
+① mealcycle/wsgi.py      application receives the HTTP request → Django builds `request`
+② MIDDLEWARE              settings.py list, top → bottom (sessions, CSRF, auth, ...)
+③ mealcycle/urls.py       "api/v1/" matches → include("core.urls") gets "health/"
+④ core/urls.py            "health/" → HealthView.as_view()
+⑤ DRF APIView.dispatch()  authentication_classes → permission_classes → picks get()
+⑥ core/views.py           HealthView.get() → ensure_connection() → Response({...})
+⑦ DRF renderer            dict → JSON (or the browsable HTML page under DEBUG)
+⑧ MIDDLEWARE              back up, bottom → top, adding response headers
+```
+
+| Step | Django | Laravel |
+|---|---|---|
+| Entry point | `mealcycle/wsgi.py` | `public/index.php` |
+| Global middleware | `MIDDLEWARE` in settings | `Kernel.php` / `bootstrap/app.php` |
+| Root routes | `mealcycle/urls.py` | `routes/api.php` |
+| Grouped routes | `include("core.urls")` | `Route::prefix()->group()` |
+| Per-route auth | `permission_classes` on the view | `->middleware('auth')` on the route |
+| Controller | `HealthView.get()` | `HealthController@index` |
+
+Two differences from Laravel:
+- **URLs are matched in pieces.** The project urls.py strips its prefix and hands the rest to the app's urls.py.
+- **DRF checks auth inside the view** (in `dispatch()`), using class attributes or the `REST_FRAMEWORK` defaults, not with route middleware. That's why `HealthView` sets `AllowAny`: otherwise the global `IsAuthenticated` default returns 403.
