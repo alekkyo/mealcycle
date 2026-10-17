@@ -16,7 +16,7 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-from config.env import env_list, env_required
+from config.env import env_list, env_required, jwt_secret
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,11 +42,19 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "accounts",
+    "accounts",  # before allauth so our email templates override allauth's
+    "allauth",
+    "allauth.account",
+    "allauth.headless",
     "core",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",  # Django admin login
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -56,6 +64,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -135,6 +144,7 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "allauth.headless.contrib.rest_framework.authentication.JWTTokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_RENDERER_CLASSES": [
@@ -143,3 +153,61 @@ REST_FRAMEWORK = {
         *(["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     ],
 }
+
+# django-allauth: passwordless email login by code (see docs/accounts/spec.md)
+ALLAUTH_USER_CODE_FORMAT = {"numeric": True, "length": 6}  # e.g. 482-913
+
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*"]  # no password → unusable password
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_PREVENT_ENUMERATION = False  # one email screen for signup and login
+ACCOUNT_EMAIL_SUBJECT_PREFIX = ""
+
+ACCOUNT_LOGIN_BY_CODE_ENABLED = True
+ACCOUNT_LOGIN_BY_CODE_TIMEOUT = 600
+ACCOUNT_LOGIN_BY_CODE_MAX_ATTEMPTS = 3
+# 6-digit codes: cap code requests per email per DAY, so slow guessing over weeks
+# isn't possible (allauth's default is only 3/minute). Only one window per "key":
+# allauth 65.20 stores all per-key windows under one cache key, so stacking
+# "3/m/key,30/d/key" silently breaks the longer window. See docs/accounts/auth.md.
+ACCOUNT_RATE_LIMITS = {"request_login_code": "20/m/ip,30/d/key"}
+
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_TIMEOUT = 600
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_MAX_ATTEMPTS = 3
+
+HEADLESS_ONLY = True
+HEADLESS_CLIENTS = ("app",)
+HEADLESS_TOKEN_STRATEGY = "allauth.headless.tokens.strategies.jwt.JWTTokenStrategy"
+HEADLESS_JWT_ALGORITHM = "HS256"
+HEADLESS_JWT_PRIVATE_KEY = jwt_secret("JWT_SECRET_KEY")
+HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN = 15 * 60
+HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN = 90 * 24 * 60 * 60
+HEADLESS_JWT_ROTATE_REFRESH_TOKEN = True
+# allauth checks refresh tokens against the Django session, so the session must
+# outlive the refresh token (Django's default is only 2 weeks).
+SESSION_COOKIE_AGE = HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN + 24 * 60 * 60
+
+
+# Email: SMTP (Mailtrap locally) when EMAIL_HOST is set, otherwise printed to the
+# console. Tests always use Django's in-memory outbox.
+def email_settings_from_env(environ) -> dict:
+    """SMTP settings when EMAIL_HOST is set, otherwise the console backend."""
+    if not environ.get("EMAIL_HOST"):
+        return {"EMAIL_BACKEND": "django.core.mail.backends.console.EmailBackend"}
+    return {
+        "EMAIL_BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "EMAIL_HOST": environ["EMAIL_HOST"],
+        "EMAIL_PORT": int(environ.get("EMAIL_PORT", "2525")),
+        "EMAIL_HOST_USER": environ.get("EMAIL_HOST_USER", ""),
+        "EMAIL_HOST_PASSWORD": environ.get("EMAIL_HOST_PASSWORD", ""),
+        "EMAIL_USE_TLS": True,
+    }
+
+
+globals().update(email_settings_from_env(os.environ))  # defines EMAIL_* settings
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL", "MealCycle <no-reply@mealcycle.local>"
+)

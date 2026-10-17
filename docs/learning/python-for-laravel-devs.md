@@ -486,3 +486,83 @@ Lesson: the only truly dangerous one is `migrations/__init__.py`, and our test s
 - A model without registration still has its table, just no admin page.
 - ≈ **Nova/Filament resources**: one class per model, auto-discovered, defining columns, filters and forms. Django looks in each app's `admin.py` instead of one central folder.
 - `admin.py` is just the filename autodiscovery looks for. Registering somewhere else technically works, but always use `admin.py`.
+
+## Adding a third-party Django app (allauth)
+
+Installing a Django package is usually **4 steps**, like a Laravel package with a service provider, config file and migrations:
+1. `pip install "django-allauth[headless]==65.20.0"` and pin it in `requirements.txt`. `[headless]` is an **extra**: optional dependencies (here PyJWT) installed alongside it.
+2. Add its apps to `INSTALLED_APPS` (≈ registering service providers), plus any middleware.
+3. Set its settings (`ACCOUNT_*`, `HEADLESS_*`), the way you'd publish and edit `config/package.php`.
+4. Include its URLs and run `migrate`. Its own migrations created `account_emailaddress` and friends.
+
+**App order matters for templates.** When Django looks for `account/email/login_code_subject.txt`, it checks each app's `templates/` folder **in `INSTALLED_APPS` order** and uses the first match. Because `"accounts"` is listed before `"allauth"`, our files override allauth's (≈ publishing and editing a package's views in Laravel).
+
+**`AUTHENTICATION_BACKENDS`** ≈ Laravel guards/user providers: the list of ways Django can check "who is this?". `ModelBackend` checks email + password (for the admin). allauth's backend adds its own login methods.
+
+**Headless** means "no HTML pages, only a JSON API". The mobile app draws the screens. `HEADLESS_ONLY = True` turns off allauth's built-in web pages, and `HEADLESS_CLIENTS = ("app",)` exposes only the mobile flavour of the API: `/_allauth/app/v1/...`. `GET /_allauth/app/v1/config` tells the app which features are on.
+
+**Pending flows:** allauth answers "not finished yet" with **401** plus a `flows` list (e.g. `verify_email` pending) and a `meta.session_token`. The app sends that token back as the `X-Session-Token` header on the next step, so the server knows which signup or login is being continued.
+
+## Signals, `OneToOneField`, `@property`, data migrations (Task 2 of email auth)
+
+**Signals ≈ Eloquent model events / observers.**
+```python
+@receiver(post_save, sender=User)                  # ≈ User::created(fn ($user) => ...)
+def create_profile_for_new_user(sender, instance, created, **kwargs):
+    if created:                                    # post_save fires on every save; only act on inserts
+        Profile.objects.create(user=instance)
+```
+- `post_save` runs after **any** `save()`: our manager, allauth, the admin, `createsuperuser`. That's why every user is guaranteed a profile, however they were created.
+- The receiver only gets connected **when its module is imported**. `AccountsConfig.ready()` (≈ a service provider's `boot()`) imports `accounts.signals` at startup. Forget that and the signal silently never fires.
+- Caveat: `QuerySet.update()` and `bulk_create()` don't call `save()`, so they don't fire signals.
+
+**`OneToOneField(User, related_name="profile")`** ≈ `hasOne` / `belongsTo`. It's a unique foreign key, accessible from both sides: `profile.user` and `user.profile`. `on_delete=models.CASCADE` means deleting the user deletes the profile.
+
+**`@property`** turns a method into something you read like a field, without `()`: `profile.trial_is_active` (≈ an Eloquent accessor like `getTrialIsActiveAttribute`).
+
+**Data migrations** change *data*, not the schema. `makemigrations --empty` creates a blank one, and `RunPython(forward, reverse)` runs your function. Inside it, always use `apps.get_model("accounts", "User")`, never `from accounts.models import User`: the migration must see the model **as it was at that point in history**, not today's version. `RunPython.noop` is the "nothing to undo" reverse.
+
+**Admin inlines** show a related model inside the parent's edit page (`StackedInline`). We hide it on "add user" with `get_inlines()`. The signal already creates the profile there, and the inline would try to create a second one.
+
+## Django templates and overriding a package's emails (Task 3 of email auth)
+
+- Django templates ≈ **Blade**: `{{ code }}` prints a variable (auto-escaped in HTML), and `{% if %}`, `{% for %}`, `{% extends %}` are tags (≈ `@if`, `@foreach`, `@extends`).
+- allauth renders `account/email/login_code_subject.txt` and `..._message.txt`. We put files **with the same path** in `accounts/templates/`, and because `accounts` is listed before `allauth` in `INSTALLED_APPS`, Django finds ours first (≈ publishing a package's views to `resources/views/vendor/...`).
+- Our templates don't use `{% extends "account/email/base_message.txt" %}`, which leaves out allauth's "Hello from example.com" header and footer on purpose. Less text.
+- **Testing email:** during tests Django swaps the email backend for an in-memory one. Every sent email lands in `django.core.mail.outbox` (≈ `Mail::fake()` + `Mail::assertSent()`).
+- **`re`** is Python's regex module: `re.compile(r"\d{3}-\d{3}")`, then `.search()` / `.match()`. `r"..."` is a raw string, so backslashes aren't treated as escapes.
+
+**Gotcha found while building this:** tests are isolated for the **database** (each test's changes are rolled back), but **not for the cache**. allauth's rate limits ("1 verification email per 10 s per address") live in the cache, so a test signing up `new@example.com` silently stopped the *next* test's email from being sent. Fix: an `autouse=True` fixture in `conftest.py` that runs `cache.clear()` before every test. `autouse` means "apply to every test without being asked for"; `yield` splits it into setup (before) and teardown (after), ≈ PHPUnit's `setUp()`/`tearDown()`.
+
+## JWT, tokens and `/me` (Task 4 of email auth)
+
+**JWT = JSON Web Token**, three base64 parts joined by dots: `header.payload.signature`.
+- The **payload** holds the user id and the expiry time. Anyone can *read* it (it's not encrypted), but nobody can *change* it, because the **signature** is computed with our `JWT_SECRET_KEY`. Change one character and the signature no longer matches.
+- So the server checks a token **without a database lookup** (just the signature and expiry). That's why it scales well.
+- **Access token (15 min):** sent on every request as `Authorization: Bearer <token>`. It's short-lived, so a leaked one expires fast.
+- **Refresh token (90 days):** only used to get a new pair (`POST /_allauth/app/v1/tokens/refresh`). **Rotation:** each refresh returns a *new* refresh token, and the old one stops working (our test proves it gets a 400). A stolen refresh token stops working as soon as the real app refreshes.
+- ≈ Laravel Sanctum/Passport tokens, except Sanctum tokens are random strings looked up in a DB table.
+
+**What allauth returns** (pinned in our tests):
+
+| Situation | Status |
+|---|---|
+| Step pending (code sent, waiting for it) | 401 + `meta.session_token` |
+| Logged in | 200 + `meta.access_token`, `meta.refresh_token` |
+| Wrong code | 400 |
+| Code burned (3 wrong) or expired | 409: the pending login is gone, so request a new code |
+| 4th code request within a minute | 400 (`too_many_login_attempts`) |
+
+**Our `/me` endpoint** uses allauth's `JWTTokenAuthentication` as a DRF authentication class, so our own views accept the same tokens. It's listed **first** in `DEFAULT_AUTHENTICATION_CLASSES` because DRF asks the first class how to respond to missing credentials. With JWT first we get a proper **401** ("log in"). With session auth first it would be **403** ("forbidden").
+
+**`ModelSerializer` with `source=`** ≈ an API Resource:
+```python
+class MeSerializer(serializers.ModelSerializer):
+    trial_ends_at = serializers.DateTimeField(source="profile.trial_ends_at")   # follows user.profile.trial_ends_at
+    class Meta:
+        model = User
+        fields = ["email", "trial_ends_at", "trial_active"]                      # the JSON keys, in order
+```
+`class Meta:` inside a class is Django's convention for "configuration about this class".
+
+**Faking time in a test:** `patch("django.utils.timezone.now", return_value=later)` makes "now" 11 minutes in the future, so the code looks expired (≈ Laravel's `$this->travel(11)->minutes()`). Python 3.10+ lets one `with (...)` block hold several patches.

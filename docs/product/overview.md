@@ -7,6 +7,7 @@ MealCycle is an **AI-first meal prep planner and pantry organizer**. It's a real
 ## Principles
 
 1. **Simplicity above everything.** Fewer steps is better. Every flow (signup, onboarding, planning) should ask for as little as possible and use sensible defaults. If a design adds a screen or a required field, it has to justify it.
+   - **UI:** as little text as possible, a simple UI, big text.
 2. **Production quality from day one.** Secrets stay out of git, auth is secure, every feature has tests, and payments are handled reliably.
 
 ## Business rules
@@ -26,12 +27,13 @@ Each sub-project gets its own design → plan → PR cycle.
 | # | Sub-project | Summary |
 |---|---|---|
 | 1 | **Foundation** | Settings from `.env`, Postgres, custom User model, DRF, tests, linting, health check |
-| 2 | **Accounts & Auth** | Passwordless email login, Apple/Google login, JWT, trial tracking |
+| 2 | **Accounts & Auth** | Passwordless email login (code + link), tokens for the mobile app |
 | 3 | **Onboarding** | Goal → sub-goal → prep schedule → meals per week |
 | 4 | **Pantry** | What the user has at home |
 | 5 | **Recipes & Meal Plans** | The core meal prep data |
 | 6 | **AI Suggestions** | Claude generates plans and recipes from goals and the pantry |
 | 7 | **Billing** | Stripe subscriptions; access is blocked when the trial ends |
+| later | **Social login** | Sign in with Apple + Google (together, before App Store submission) |
 
 Sub-projects 2 and 3 may be built together, since onboarding happens right after signup.
 
