@@ -523,3 +523,11 @@ def create_profile_for_new_user(sender, instance, created, **kwargs):
 **Data migrations** change *data*, not the schema. `makemigrations --empty` creates a blank one, and `RunPython(forward, reverse)` runs your function. Inside it, always use `apps.get_model("accounts", "User")`, never `from accounts.models import User`: the migration must see the model **as it was at that point in history**, not today's version. `RunPython.noop` is the "nothing to undo" reverse.
 
 **Admin inlines** show a related model inside the parent's edit page (`StackedInline`). We hide it on "add user" with `get_inlines()`. The signal already creates the profile there, and the inline would try to create a second one.
+
+## Django templates and overriding a package's emails (Task 3 of email auth)
+
+- Django templates ≈ **Blade**: `{{ code }}` prints a variable (auto-escaped in HTML), and `{% if %}`, `{% for %}`, `{% extends %}` are tags (≈ `@if`, `@foreach`, `@extends`).
+- allauth renders `account/email/login_code_subject.txt` and `..._message.txt`. We put files **with the same path** in `accounts/templates/`, and because `accounts` is listed before `allauth` in `INSTALLED_APPS`, Django finds ours first (≈ publishing a package's views to `resources/views/vendor/...`).
+- Our templates don't use `{% extends "account/email/base_message.txt" %}`, which leaves out allauth's "Hello from example.com" header and footer on purpose. Less text.
+- **Testing email:** during tests Django swaps the email backend for an in-memory one. Every sent email lands in `django.core.mail.outbox` (≈ `Mail::fake()` + `Mail::assertSent()`).
+- **`re`** is Python's regex module: `re.compile(r"\d{3}-\d{3}")`, then `.search()` / `.match()`. `r"..."` is a raw string, so backslashes aren't treated as escapes.
