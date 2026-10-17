@@ -12,13 +12,15 @@ def normalize_email_address(email: str) -> str:
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-    def create_user(self, email, **extra_fields):
-        """Create a regular, passwordless app user."""
+    def create_user(self, email, password=None, **extra_fields):
+        """Create a regular app user. Passwordless unless a password is given."""
         email = normalize_email_address(email or "")
         if not email:
             raise ValueError("Users must have an email address.")
         user = self.model(email=email, **extra_fields)
-        user.save(using=self._db)  # save() gives the user an unusable password
+        if password:
+            user.set_password(password)
+        user.save(using=self._db)  # without a password, save() makes it unusable
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
@@ -52,6 +54,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+    def clean(self):
+        # Forms call clean() before their uniqueness check, so normalizing here
+        # turns a case-variant duplicate into a form error instead of a 500.
+        super().clean()
+        self.email = normalize_email_address(self.email or "")
 
     def save(self, *args, **kwargs):
         self.email = normalize_email_address(self.email)

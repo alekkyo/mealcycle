@@ -30,3 +30,14 @@ def test_admin_login_accepts_uppercase_email(client):
     User.objects.create_superuser(email="boss@example.com", password="s3cret-pass!")
     logged_in = client.login(username="BOSS@example.com", password="s3cret-pass!")
     assert logged_in is True
+
+
+def test_admin_add_user_rejects_case_variant_duplicate(admin_client):
+    User.objects.create_user(email="alex@example.com")
+    response = admin_client.post(
+        "/admin/accounts/user/add/",
+        {"email": "ALEX@example.com", "is_active": "on"},
+    )
+    assert response.status_code == 200  # form re-rendered with an error, not a 500
+    assert b"already exists" in response.content
+    assert User.objects.count() == 2  # admin_client's superuser + alex

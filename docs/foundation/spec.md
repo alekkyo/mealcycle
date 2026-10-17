@@ -45,7 +45,8 @@ Kept as one settings file. Values that differ between environments come from env
 
 **`accounts/models.py`**
 - `UserManager(BaseUserManager)`
-  - `create_user(email, **extra)`: raises `ValueError` if the email is empty, lowercases the whole email, calls `set_unusable_password()`, saves.
+  - `create_user(email, password=None, **extra)`: raises `ValueError` if the email is empty, lowercases the whole email, and hashes the password if one is given. Otherwise `save()` makes it unusable. (Changed after the final review: the original signature stored a passed `password` as plain text.)
+  - `User.clean()` also normalizes the email, so the admin form reports a case-variant duplicate as a form error instead of a 500. (Added after the final review.)
   - `create_superuser(email, password, **extra)`: same, but with a real password and `is_staff=True`, `is_superuser=True`.
 - `User(AbstractBaseUser, PermissionsMixin)`
   - `email`: `EmailField(unique=True)`, `USERNAME_FIELD = "email"`, `REQUIRED_FIELDS = []`

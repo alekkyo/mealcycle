@@ -67,3 +67,9 @@ def test_get_by_natural_key_is_case_insensitive():
 def test_str_is_email():
     user = User.objects.create_user(email="alex@example.com")
     assert str(user) == "alex@example.com"
+
+
+def test_create_user_with_password_hashes_it():
+    user = User.objects.create_user(email="alex@example.com", password="hunter22!")
+    assert user.password != "hunter22!"
+    assert user.check_password("hunter22!") is True
