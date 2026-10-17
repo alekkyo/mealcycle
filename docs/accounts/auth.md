@@ -14,10 +14,17 @@ Users never create or remember a password. They log in by:
 2. **Sign in with Apple**
 3. **Sign in with Google**
 
-### The email contains a 6-digit code and a magic link
-- On mobile, magic links on their own are unreliable. Tapping the link can open Safari instead of the app, and they fail when the email is opened on a different device from the one logging in.
-- A **6-digit code** works everywhere. The **link** is still a one-tap shortcut when it opens on the right device.
-- (Proposed, based on the mobile-first decision. We'll confirm it in the auth design.)
+### The email contains a code only, no magic link (revised 2026-10-17)
+*Originally proposed: code + link. Revised after weighing the two.*
+- **Code only.** We keep allauth's code strength at **6 digits (or stronger)**, never shorter.
+- **Why not a magic link:**
+  - **Wrong device:** a link opened on a laptop logs in the laptop's browser, not the phone app.
+  - **Email security scanners** (Outlook Safe Links, Defender, Mimecast) "click" every link and use up single-use links before the user does ("link expired").
+  - **It needs universal links** (an owned domain + `apple-app-site-association`) to open the app, and in-app browsers still sometimes open a web page.
+  - It trains users to click login links in emails, which is what phishing relies on.
+- **Why a code is enough:** iOS 17+ and Android autofill one-time codes from Mail above the keyboard, which is one tap, like a link, without leaving the app. It works across devices, and scanners can't consume it.
+- **Why not shorter (e.g. 2 digits):** the code length *is* the security. 2 digits = 100 possibilities. With 3 guesses per code and new codes on request, an attacker gets in ≈45% of the time within a day. With 6 digits it's ≈0.006%.
+- Magic links: **not planned**. Revisit only if we ship a web app.
 
 ### Apple login is required, not optional
 Apple's App Store rules require "Sign in with Apple" in any iOS app that offers another third-party login, such as Google.
@@ -46,7 +53,7 @@ A user might sign in with an email code one day and with Apple the next. Both sh
 - **Chosen:** django-allauth's headless API (a JSON API for the mobile app), configured for passwordless email login by code.
 - **Why:** Apple + Google login are definitely coming. allauth already handles them, including linking a social login to an existing email account, Apple relay emails and ID-token verification. It's battle-tested security code (codes, expiry, attempt limits, rate limits, enumeration protection).
 - **Scaling:** no meaningful difference from a custom build. Both use stateless JWT checks, the extra tables are small and only touched at login, and rate limiting needs a shared cache (Redis) with multiple servers either way.
-- **Trade-off:** its emails contain a code; a magic link has to be added via template customisation (being researched). Its API shape (`/_allauth/app/v1/...`) and models come with it.
+- **Trade-off:** its API shape (`/_allauth/app/v1/...`) and models come with it.
 - **Rejected:** a custom flow + simplejwt. Kept as a reading reference in [approach-1-custom-flow.md](approach-1-custom-flow.md).
 - The user chose this for the product, not for learning: *"I want to choose what makes more sense for my app and not for my learning."*
 
