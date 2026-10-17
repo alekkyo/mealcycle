@@ -6,7 +6,7 @@ Context, discussions, and decisions for MealCycle, grouped by domain. Each doc r
 |---|---|---|
 | Product | [product/overview.md](product/overview.md) | Vision, principles, roadmap |
 | Foundation | [foundation/decisions.md](foundation/decisions.md) · [spec.md](foundation/spec.md) · [plan.md](foundation/plan.md) | Implemented |
-| Accounts & Auth | [accounts/auth.md](accounts/auth.md) | Requirements gathered |
+| Accounts & Auth | [accounts/auth.md](accounts/auth.md) | Designing (email login) |
 | Onboarding | [onboarding/questionnaire.md](onboarding/questionnaire.md) | Requirements gathered |
 | Learning | [learning/python-for-laravel-devs.md](learning/python-for-laravel-devs.md) | Python notes for a Laravel developer |
 

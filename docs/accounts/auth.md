@@ -25,6 +25,11 @@ Apple's App Store rules require "Sign in with Apple" in any iOS app that offers 
 ### One person = one account
 A user might sign in with an email code one day and with Apple the next. Both should resolve to the same account, matched by email. Social logins are stored in their own table, linked to the user.
 
+### Scope: email login first, Apple/Google much later (2026-10-17)
+- This sub-project builds **email login only** (code + link, tokens for the mobile app, `/me`).
+- **Sign in with Apple / Google is postponed to a later sub-project, well after onboarding.** Reminder: Apple requires Sign in with Apple in the iOS app *if* Google login is offered, so the two ship together before App Store submission.
+- **Why:** email login works on its own with no third-party developer accounts, and it can be tested end to end with `curl` right away.
+
 ## Open questions
 
 - JWT details: token lifetimes and refresh strategy for a mobile app.

@@ -26,12 +26,13 @@ Each sub-project gets its own design → plan → PR cycle.
 | # | Sub-project | Summary |
 |---|---|---|
 | 1 | **Foundation** | Settings from `.env`, Postgres, custom User model, DRF, tests, linting, health check |
-| 2 | **Accounts & Auth** | Passwordless email login, Apple/Google login, JWT, trial tracking |
+| 2 | **Accounts & Auth** | Passwordless email login (code + link), tokens for the mobile app |
 | 3 | **Onboarding** | Goal → sub-goal → prep schedule → meals per week |
 | 4 | **Pantry** | What the user has at home |
 | 5 | **Recipes & Meal Plans** | The core meal prep data |
 | 6 | **AI Suggestions** | Claude generates plans and recipes from goals and the pantry |
 | 7 | **Billing** | Stripe subscriptions; access is blocked when the trial ends |
+| later | **Social login** | Sign in with Apple + Google (together, before App Store submission) |
 
 Sub-projects 2 and 3 may be built together, since onboarding happens right after signup.
 
