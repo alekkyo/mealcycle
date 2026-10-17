@@ -457,3 +457,11 @@ app/
 Commands: `showmigrations` (applied/pending), `sqlmigrate accounts 0001` (see the SQL), `makemigrations --name add_expiry_date pantry` (choose the name).
 
 **Team gotcha:** two branches each adding `pantry/0002_*` causes a "Conflicting migrations" error. Fix it with `makemigrations --merge`, which creates a `0003_merge` that depends on both.
+
+## `__init__.py`
+
+- **It marks a folder as a package**, i.e. importable. The folder path *is* the import path: `accounts/models.py` → `from accounts.models import User`. That's Python's alternative to Composer's PSR-4 mapping, with no config file.
+- **It runs the first time the package is imported.** Usually it's empty (all 7 of ours are 0 bytes). With content, it works like a JS `index.ts`: setup code, or re-exports (`from pkg.helpers import x` inside it lets callers write `from pkg import x`).
+- **Django gotcha:** never import models in an app's `__init__.py`. Apps are imported before models can load, so you get `AppRegistryNotReady`.
+- **Why still needed:** Python 3.3+ can import folders without it ("namespace packages"), but Django **ignores `migrations/` folders without `__init__.py`**, and pytest relies on `tests/__init__.py` so that same-named test files in different apps don't clash.
+- Rule: every folder of Python code gets one, and it's normally empty. `startapp` creates them; for new folders like `tests/`, create one with `touch tests/__init__.py`.
